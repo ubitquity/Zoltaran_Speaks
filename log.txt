@@ -1,0 +1,6 @@
+# Psychic Traveller Wish Game Log
+# Format: timestamp | user | result | tokens_won | memo
+# Results: WIN, TOKENS, FREE_SPIN, LOSE
+# Wishes are stored privately
+# View full log: https://ndao.org/arcade/games/Zoltarano_Speaks/log.txt
+

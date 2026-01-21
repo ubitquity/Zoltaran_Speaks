@@ -1,0 +1,2876 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Psychic Traveller Wish v1.0</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/proton-web-sdk/4.2.20/bundle.min.js"></script>
+
+    <!-- Security: Anti-DevTools, Anti-Inspect & Console Protection -->
+    <script>
+        (function() {
+            'use strict';
+            document.addEventListener('contextmenu', function(e) { e.preventDefault(); return false; });
+            document.addEventListener('dragstart', function(e) { e.preventDefault(); return false; });
+            document.addEventListener('selectstart', function(e) { e.preventDefault(); return false; });
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'F12' || e.keyCode === 123) { e.preventDefault(); return false; }
+                if (e.ctrlKey && e.shiftKey && ['I', 'J', 'C'].includes(e.key.toUpperCase())) { e.preventDefault(); return false; }
+                if (e.ctrlKey && e.key.toUpperCase() === 'U') { e.preventDefault(); return false; }
+                if (e.ctrlKey && e.key.toUpperCase() === 'S') { e.preventDefault(); return false; }
+            });
+            var devToolsOpen = false;
+            var threshold = 160;
+            setInterval(function() {
+                var start = performance.now();
+                debugger;
+                var end = performance.now();
+                if (end - start > threshold) {
+                    if (!devToolsOpen) {
+                        devToolsOpen = true;
+                        document.body.innerHTML = '<div style="display:flex;justify-content:center;align-items:center;height:100vh;background:#000;"><h1 style="color:#ff4444;font-family:sans-serif;text-align:center;">Security Violation Detected<br><small style="color:#888;font-size:0.5em;">DevTools access is not permitted</small></h1></div>';
+                    }
+                }
+            }, 1000);
+            var consoleWarn = function() { console.clear(); console.log('%cStop!', 'color:red;font-size:50px;font-weight:bold;'); console.log('%cThis browser feature is for developers. Do not paste any code here.', 'font-size:16px;'); };
+            setInterval(consoleWarn, 5000);
+        })();
+    </script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700;900&family=Inter:wght@400;600;800&display=swap');
+
+        :root {
+            --primary: #9b59b6;
+            --primary-dark: #6c3483;
+            --bg-body: #0a0812;
+            --bg-panel: #1a1525;
+            --bg-element: #2a2335;
+            --text-main: #ffffff;
+            --text-muted: #8888aa;
+            --gold: #ffd700;
+            --border: 1px solid #3a3350;
+            --mystic-purple: #9b59b6;
+            --mystic-blue: #3498db;
+            --mystic-teal: #1abc9c;
+            --crystal-glow: #e74c3c;
+            --success: #27ae60;
+            --arcade-green: #4ade80;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', system-ui, sans-serif;
+            background: linear-gradient(135deg, #0a0812 0%, #1a1525 50%, #0a0812 100%);
+            color: var(--text-main);
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        header {
+            background: linear-gradient(180deg, var(--bg-panel) 0%, transparent 100%);
+            border-bottom: var(--border);
+            padding: 10px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            height: 60px;
+        }
+
+        .logo {
+            font-family: 'Cinzel Decorative', serif;
+            font-weight: 700;
+            font-size: 1.2rem;
+            letter-spacing: 1px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .logo span { color: var(--mystic-purple); }
+
+        .wallet-btn {
+            background: linear-gradient(135deg, var(--mystic-purple), var(--primary-dark));
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        .wallet-btn:hover { opacity: 0.9; transform: scale(1.02); }
+
+        .logout-btn {
+            background: linear-gradient(135deg, #e74c3c, #c0392b) !important;
+            padding: 8px 20px;
+            font-size: 0.85rem;
+            white-space: nowrap;
+        }
+
+        .logout-btn:hover {
+            background: linear-gradient(135deg, #c0392b, #a93226) !important;
+        }
+
+        .dashboard {
+            display: grid;
+            grid-template-columns: 1fr 350px;
+            gap: 20px;
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 0 20px;
+            width: 100%;
+            flex: 1;
+        }
+
+        @media(max-width: 900px) { .dashboard { grid-template-columns: 1fr; } }
+
+        .panel {
+            background: var(--bg-panel);
+            border-radius: 12px;
+            border: var(--border);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .game-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            background: var(--bg-element);
+            padding: 10px 15px;
+            border-radius: 8px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .credit-display { font-size: 0.85rem; color: var(--text-muted); }
+        .free-count { color: var(--gold); font-weight: bold; font-size: 1.1rem; }
+
+        /* Crystal Ball Stage */
+        .fortune-stage {
+            flex: 1;
+            background: radial-gradient(ellipse at center, #1a1525 0%, #0a0812 70%);
+            border: 3px solid #3a3350;
+            border-radius: 20px;
+            padding: 30px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 500px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Mystical background particles */
+        .fortune-stage::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image:
+                radial-gradient(2px 2px at 20% 30%, rgba(155, 89, 182, 0.3), transparent),
+                radial-gradient(2px 2px at 40% 70%, rgba(52, 152, 219, 0.3), transparent),
+                radial-gradient(2px 2px at 60% 20%, rgba(26, 188, 156, 0.3), transparent),
+                radial-gradient(2px 2px at 80% 50%, rgba(155, 89, 182, 0.3), transparent);
+            animation: sparkle 4s ease-in-out infinite;
+            pointer-events: none;
+        }
+
+        @keyframes sparkle {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 0.8; }
+        }
+
+        .traveller-container {
+            text-align: center;
+            z-index: 1;
+        }
+
+        .traveller-title {
+            font-family: 'Cinzel Decorative', serif;
+            font-size: 1.8rem;
+            color: var(--gold);
+            margin-bottom: 10px;
+            text-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
+        }
+
+        .traveller-subtitle {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            margin-bottom: 30px;
+        }
+
+        /* Crystal Ball */
+        /* Zoltarano Container */
+        .zoltar-container {
+            position: relative;
+            width: 300px;
+            height: 280px;
+            margin: 20px auto;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Zoltarano Image */
+        .zoltar-image {
+            width: 280px;
+            height: auto;
+            max-height: 260px;
+            object-fit: contain;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            filter: drop-shadow(0 0 20px rgba(255, 0, 0, 0.5));
+            border-radius: 10px;
+        }
+
+        .zoltar-image:hover {
+            transform: scale(1.03);
+            filter: drop-shadow(0 0 30px rgba(255, 0, 0, 0.7));
+        }
+
+        .zoltar-image.active {
+            animation: zoltarPulse 0.5s ease-in-out infinite;
+        }
+
+        @keyframes zoltarPulse {
+            0%, 100% { filter: drop-shadow(0 0 20px rgba(255, 0, 0, 0.5)); }
+            50% { filter: drop-shadow(0 0 40px rgba(255, 100, 0, 0.8)); }
+        }
+
+        /* Glow effect behind Zoltarano */
+        .zoltar-glow {
+            position: absolute;
+            width: 200px;
+            height: 200px;
+            background: radial-gradient(circle, rgba(255,0,0,0.3) 0%, transparent 70%);
+            border-radius: 50%;
+            animation: glowPulse 3s ease-in-out infinite;
+            pointer-events: none;
+        }
+
+        @keyframes glowPulse {
+            0%, 100% { opacity: 0.5; transform: scale(1); }
+            50% { opacity: 0.8; transform: scale(1.1); }
+        }
+
+        .crystal-ball-inner {
+            position: absolute;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 2rem;
+            opacity: 0;
+            transition: opacity 0.5s;
+            z-index: 5;
+            text-shadow: 0 0 10px rgba(255,215,0,0.8);
+        }
+
+        .crystal-ball-inner.show { opacity: 1; }
+
+        /* Fortune Card Result Display */
+        .result-overlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0);
+            width: 320px;
+            min-height: 400px;
+            background: linear-gradient(135deg, #f5e6c8 0%, #e8d4a8 50%, #d4c094 100%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            z-index: 100;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.8), inset 0 0 30px rgba(139,69,19,0.2);
+            border: 8px solid #8B4513;
+            transition: transform 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+        }
+
+        .result-overlay::before {
+            content: '🔮 ZOLTARANO SPEAKS 🔮';
+            position: absolute;
+            top: -1px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #8B0000;
+            color: #ffd700;
+            padding: 5px 20px;
+            font-size: 0.7rem;
+            font-weight: bold;
+            letter-spacing: 2px;
+            border-radius: 0 0 10px 10px;
+        }
+
+        .result-overlay.show {
+            transform: translate(-50%, -50%) scale(1);
+        }
+
+        .result-icon {
+            font-size: 4rem;
+            margin: 30px 0 15px 0;
+            animation: resultBounce 0.5s ease;
+            filter: drop-shadow(0 4px 8px rgba(0,0,0,0.3));
+        }
+
+        @keyframes resultBounce {
+            0% { transform: scale(0) rotate(-10deg); }
+            50% { transform: scale(1.3) rotate(5deg); }
+            100% { transform: scale(1) rotate(0deg); }
+        }
+
+        .result-title {
+            font-family: 'Cinzel Decorative', serif;
+            font-size: 1.5rem;
+            color: #8B0000;
+            margin-bottom: 10px;
+            text-align: center;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.2);
+        }
+
+        .result-message {
+            color: #4a3520;
+            font-size: 0.95rem;
+            margin-bottom: 15px;
+            text-align: center;
+            max-width: 280px;
+            font-style: italic;
+            line-height: 1.5;
+        }
+
+        /* Fortune card decorative border */
+        .result-overlay::after {
+            content: '';
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            right: 15px;
+            bottom: 15px;
+            border: 2px solid #8B4513;
+            border-radius: 8px;
+            pointer-events: none;
+            opacity: 0.5;
+        }
+
+        .result-reward {
+            background: linear-gradient(135deg, #d4a574 0%, #c49464 100%);
+            border: 2px solid #8B4513;
+            padding: 12px 20px;
+            border-radius: 8px;
+            text-align: center;
+            margin-bottom: 15px;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+            position: relative;
+            z-index: 5;
+        }
+
+        .result-reward .amount {
+            font-size: 1.3rem;
+            font-weight: bold;
+            color: #2d5016;
+        }
+
+        .result-reward .label {
+            font-size: 0.75rem;
+            color: #5a4030;
+        }
+
+        .claim-container {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-bottom: 12px;
+            position: relative;
+            z-index: 5;
+        }
+
+        .record-btn {
+            background: linear-gradient(135deg, #8B4513, #654321);
+            color: #ffd700;
+            border: 2px solid #654321;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.8rem;
+            transition: all 0.3s ease;
+        }
+
+        .record-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(139, 69, 19, 0.5);
+            background: linear-gradient(135deg, #a0522d, #8B4513);
+        }
+
+        .record-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .record-btn.arcade-record {
+            background: linear-gradient(135deg, #2d5016, #1a3010);
+            border-color: #4ade80;
+            color: #4ade80;
+        }
+
+        /* Fortune Card Continue Button */
+        .result-overlay .wish-btn {
+            background: linear-gradient(135deg, #8B0000, #5a0000);
+            border: 2px solid #ffd700;
+            color: #ffd700;
+            padding: 12px 30px;
+            font-size: 1rem;
+            margin-top: 10px;
+            position: relative;
+            z-index: 5;
+        }
+
+        .result-overlay .wish-btn:hover {
+            background: linear-gradient(135deg, #a00000, #6a0000);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(139, 0, 0, 0.5);
+        }
+
+        /* Controls */
+        .controls-area {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .wish-input-container {
+            background: var(--bg-element);
+            padding: 15px;
+            border-radius: 10px;
+            border: 1px solid #3a3350;
+        }
+
+        .wish-input-label {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+            display: block;
+        }
+
+        .wish-input {
+            width: 100%;
+            padding: 12px;
+            border-radius: 8px;
+            border: 2px solid #3a3350;
+            background: var(--bg-body);
+            color: white;
+            font-size: 1rem;
+            transition: border-color 0.3s;
+        }
+
+        .wish-input:focus {
+            outline: none;
+            border-color: var(--mystic-purple);
+        }
+
+        .wish-input::placeholder { color: #555; }
+
+        .game-btn {
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 800;
+            cursor: pointer;
+            text-transform: uppercase;
+            border: none;
+            transition: all 0.3s;
+        }
+
+        .wish-btn {
+            background: linear-gradient(135deg, var(--mystic-purple), var(--primary-dark));
+            color: white;
+            font-family: 'Cinzel Decorative', serif;
+            font-size: 1.2rem;
+            padding: 18px;
+            box-shadow: 0 0 30px rgba(155, 89, 182, 0.3);
+        }
+
+        .wish-btn:hover:not(:disabled) {
+            transform: scale(1.02);
+            box-shadow: 0 0 50px rgba(155, 89, 182, 0.5);
+        }
+
+        .wish-btn.free-mode {
+            background: linear-gradient(135deg, var(--gold), #b8860b);
+            color: black;
+        }
+
+        .wish-btn.credit-mode {
+            background: linear-gradient(135deg, var(--success), #1e8449);
+        }
+
+        button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+        /* Token Tabs */
+        .token-tabs { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; }
+
+        .token-tab {
+            flex: 1;
+            min-width: 60px;
+            padding: 8px 4px;
+            background: var(--bg-element);
+            border: 1px solid #3a3350;
+            border-radius: 6px;
+            color: #888;
+            font-size: 0.7rem;
+            font-weight: 700;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.2s;
+        }
+
+        .token-tab:hover { background: #352a45; color: #fff; }
+        .token-tab.active { background: var(--mystic-purple); border-color: var(--mystic-purple); color: #fff; }
+        .token-tab .icon { font-size: 1rem; display: block; margin-bottom: 2px; }
+
+        /* Token Pack Lists */
+        .token-packs-container { position: relative; }
+
+        .token-pack-list {
+            display: none;
+            max-height: 180px;
+            overflow-y: auto;
+            background: var(--bg-body);
+            border: 2px solid #3a3350;
+            border-radius: 8px;
+        }
+
+        .token-pack-list::-webkit-scrollbar { width: 10px; }
+        .token-pack-list::-webkit-scrollbar-track { background: var(--bg-element); border-radius: 0 8px 8px 0; }
+        .token-pack-list::-webkit-scrollbar-thumb { background: var(--mystic-purple); border-radius: 5px; }
+        .token-pack-list.active { display: block; }
+
+        .pack-option {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 12px;
+            border-bottom: 1px solid #252530;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+
+        .pack-option:hover { background: #252530; }
+        .pack-option.selected { background: var(--mystic-purple); color: #fff; }
+        .pack-option .wishes { font-weight: 700; color: #fff; }
+        .pack-option .price { color: var(--gold); font-family: monospace; font-size: 0.85rem; }
+
+        /* Sidebar */
+        .sidebar-title {
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            margin-bottom: 15px;
+            border-bottom: var(--border);
+            padding-bottom: 10px;
+        }
+
+        /* Payout Panel */
+        .payout-panel {
+            background: linear-gradient(135deg, rgba(155, 89, 182, 0.1), rgba(52, 152, 219, 0.1));
+            border: 1px solid var(--mystic-purple);
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+
+        .payout-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .payout-title { font-size: 0.9rem; font-weight: bold; color: var(--mystic-purple); }
+        .payout-balance { font-size: 1.5rem; font-weight: bold; color: var(--arcade-green); }
+        .payout-balance-label { font-size: 0.7rem; color: var(--text-muted); }
+
+        .claim-payout-btn {
+            width: 100%;
+            margin-top: 12px;
+            padding: 12px;
+            background: linear-gradient(135deg, var(--arcade-green), #22c55e);
+            color: black;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        .claim-payout-btn:hover:not(:disabled) { opacity: 0.9; transform: scale(1.02); }
+        .claim-payout-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+        .payout-status { font-size: 0.75rem; color: var(--text-muted); margin-top: 8px; text-align: center; }
+
+        /* Stats Panel */
+        .stats-panel {
+            background: linear-gradient(135deg, rgba(155, 89, 182, 0.1), rgba(0,0,0,0.3));
+            border: 1px solid var(--mystic-purple);
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+
+        .stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+
+        .stat-box {
+            text-align: center;
+            padding: 8px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 6px;
+        }
+
+        .stat-value { font-size: 1.3rem; font-weight: bold; color: var(--gold); }
+        .stat-label { font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; }
+        .stat-box.highlight-green .stat-value { color: var(--arcade-green); }
+
+        /* Rewards Table */
+        .rewards-table {
+            background: rgba(0,0,0,0.2);
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+
+        .reward-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.85rem;
+            margin-bottom: 8px;
+            align-items: center;
+        }
+
+        .reward-row:last-child { margin-bottom: 0; }
+        .highlight { color: var(--arcade-green); }
+        .gold { color: var(--gold); }
+        .mystic { color: var(--mystic-purple); }
+
+        /* Activity Feed */
+        .activity-list {
+            flex: 1;
+            overflow-y: auto;
+            max-height: 150px;
+            margin-bottom: 15px;
+        }
+
+        .activity-item {
+            padding: 8px;
+            font-size: 0.85rem;
+            border-bottom: 1px solid #25252e;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .activity-item.win { color: var(--arcade-green); }
+        .activity-item.tokens { color: var(--gold); }
+        .activity-item.spin { color: var(--mystic-purple); }
+
+        /* Toast */
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: var(--bg-panel);
+            border: 1px solid var(--mystic-purple);
+            padding: 15px;
+            border-radius: 8px;
+            transform: translateY(100px);
+            transition: 0.3s;
+            z-index: 100;
+        }
+
+        .toast.active { transform: translateY(0); }
+        .hidden { display: none !important; }
+
+        footer {
+            margin-top: 30px;
+            padding: 30px 20px;
+            text-align: center;
+            background: var(--bg-panel);
+            border-top: var(--border);
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        footer a { color: var(--mystic-purple); text-decoration: none; }
+
+        /* Confetti */
+        #confetti {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 999;
+        }
+
+        /* $ARCADE Promo Banner */
+        .arcade-promo {
+            margin-bottom: 10px;
+            padding: 10px;
+            background: linear-gradient(135deg, #065f46, #064e3b);
+            border: 2px solid var(--arcade-green);
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .arcade-promo .title { font-size: 1rem; font-weight: bold; color: var(--arcade-green); }
+        .arcade-promo .sub { font-size: 0.75rem; color: #ccc; margin-top: 4px; }
+        .arcade-promo a { color: #60a5fa; text-decoration: none; font-weight: bold; }
+
+        /* Leaderboard Styles */
+        .leaderboard {
+            background: linear-gradient(135deg, rgba(155, 89, 182, 0.1), rgba(0,0,0,0.3));
+            border: 1px solid #3a3350;
+            border-radius: 10px;
+            padding: 10px;
+            margin-bottom: 15px;
+        }
+
+        .leader-row {
+            display: flex;
+            align-items: center;
+            padding: 8px 10px;
+            border-bottom: 1px solid #2a2335;
+            gap: 10px;
+        }
+
+        .leader-row:last-child { border-bottom: none; }
+
+        .leader-row.loading {
+            justify-content: center;
+            padding: 15px;
+        }
+
+        .leader-rank {
+            font-size: 1.2rem;
+            min-width: 30px;
+        }
+
+        .leader-name {
+            flex: 1;
+            font-weight: bold;
+            color: white;
+            font-size: 0.85rem;
+        }
+
+        .leader-stats {
+            text-align: right;
+            font-size: 0.75rem;
+        }
+
+        .leader-stats .wins { color: var(--arcade-green); font-weight: bold; }
+        .leader-stats .tokens { color: var(--gold); }
+
+        .leader-row:first-child .leader-name { color: var(--gold); }
+        .leader-row:nth-child(2) .leader-name { color: #c0c0c0; }
+        .leader-row:nth-child(3) .leader-name { color: #cd7f32; }
+
+        /* Sponsor Section */
+        .sponsor-zone {
+            background: linear-gradient(135deg, rgba(52, 152, 219, 0.1), rgba(155, 89, 182, 0.1));
+            border: 1px solid #3a3350;
+            border-radius: 10px;
+            padding: 15px;
+            text-align: center;
+            min-height: 100px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+        }
+
+        .sponsor-zone:hover {
+            border-color: var(--mystic-purple);
+            box-shadow: 0 0 15px rgba(155, 89, 182, 0.3);
+        }
+
+        .sponsor-visual {
+            max-width: 100%;
+            max-height: 120px;
+            border-radius: 8px;
+            transition: transform 0.3s;
+        }
+
+        .sponsor-visual:hover { transform: scale(1.02); }
+
+        .sponsor-placeholder {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            padding: 20px;
+        }
+
+        .sponsor-placeholder .icon { font-size: 2rem; margin-bottom: 10px; }
+
+        /* ========== MOBILE RESPONSIVE ========== */
+        @media (max-width: 1024px) {
+            .dashboard {
+                flex-direction: column;
+            }
+            .panel {
+                max-width: 100%;
+            }
+            aside.panel {
+                order: 2;
+            }
+        }
+
+        @media (max-width: 768px) {
+            body { padding: 10px; }
+
+            header {
+                flex-direction: column;
+                gap: 10px;
+                padding: 15px;
+            }
+
+            .logo {
+                flex-direction: column;
+                gap: 5px;
+                text-align: center;
+            }
+
+            .logo span:first-child { font-size: 1.2rem; }
+
+            #walletInfo {
+                flex-direction: row;
+                justify-content: center;
+                width: 100%;
+            }
+
+            .logout-btn {
+                padding: 10px 24px;
+                font-size: 0.9rem;
+            }
+
+            .dashboard {
+                padding: 10px;
+                gap: 15px;
+            }
+
+            .panel {
+                padding: 15px;
+            }
+
+            .game-header {
+                flex-direction: column;
+                gap: 8px;
+            }
+
+            .credit-display {
+                padding: 8px 12px;
+                font-size: 0.75rem;
+            }
+
+            .traveller-title {
+                font-size: 1.3rem;
+            }
+
+            .traveller-subtitle {
+                font-size: 0.8rem;
+            }
+
+            .zoltar-container {
+                width: 250px;
+                height: 240px;
+            }
+
+            .zoltar-image {
+                width: 230px;
+            }
+
+            /* Token tabs - scrollable on mobile */
+            .token-tabs {
+                flex-wrap: nowrap;
+                overflow-x: auto;
+                padding-bottom: 10px;
+                gap: 5px;
+                -webkit-overflow-scrolling: touch;
+            }
+
+            .token-tab {
+                flex-shrink: 0;
+                padding: 8px 10px;
+                font-size: 0.7rem;
+            }
+
+            .token-tab .icon {
+                font-size: 0.9rem;
+            }
+
+            .token-packs-container {
+                margin-top: 10px;
+            }
+
+            .pack-option {
+                padding: 10px;
+                font-size: 0.8rem;
+            }
+
+            .wish-btn {
+                padding: 15px 20px;
+                font-size: 0.9rem;
+            }
+
+            .wish-input-container {
+                padding: 10px;
+            }
+
+            .wish-input {
+                font-size: 0.9rem;
+                padding: 10px;
+            }
+
+            /* Result overlay - fortune card */
+            .result-overlay {
+                width: 290px;
+                min-height: 350px;
+                padding: 15px;
+            }
+
+            .result-icon {
+                font-size: 3rem;
+                margin: 20px 0 10px 0;
+            }
+
+            .result-title {
+                font-size: 1.2rem;
+            }
+
+            .result-message {
+                font-size: 0.85rem;
+            }
+
+            /* Sidebar elements */
+            .sidebar-title {
+                font-size: 0.75rem;
+                padding: 8px 12px;
+            }
+
+            .leaderboard {
+                font-size: 0.8rem;
+            }
+
+            .leader-row {
+                padding: 8px 10px;
+            }
+
+            footer {
+                padding: 20px 15px;
+            }
+
+            footer > div:first-child {
+                display: flex;
+                flex-wrap: wrap;
+                justify-content: center;
+                gap: 8px;
+            }
+
+            footer a {
+                margin: 5px !important;
+                font-size: 0.75rem;
+            }
+
+            .arcade-promo {
+                padding: 10px;
+            }
+
+            .arcade-promo .title {
+                font-size: 0.8rem;
+            }
+
+            .arcade-promo .sub {
+                font-size: 0.65rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .logo span:last-child {
+                display: none;
+            }
+
+            .zoltar-container {
+                width: 200px;
+                height: 200px;
+            }
+
+            .zoltar-image {
+                width: 180px;
+            }
+
+            .token-tab {
+                padding: 6px 8px;
+                font-size: 0.65rem;
+            }
+
+            .pack-option {
+                padding: 8px;
+            }
+
+            .result-overlay {
+                width: 260px;
+                min-height: 320px;
+            }
+        }
+    </style>
+</head>
+<body oncontextmenu="return false;">
+    <!-- Loading Screen -->
+    <div id="loadingScreen" style="position:fixed; top:0; left:0; width:100%; height:100%; background:linear-gradient(135deg, #0a0812 0%, #1a1525 50%, #0a0812 100%); z-index:9999; display:flex; flex-direction:column; align-items:center; justify-content:center; transition:opacity 0.5s ease;">
+        <div style="font-size:5rem; margin-bottom:20px; animation:pulse 2s infinite;">🔮</div>
+        <div style="font-family:'Cinzel Decorative', serif; font-size:1.8rem; font-weight:bold; color:var(--gold); margin-bottom:10px;">Psychic Traveller</div>
+        <div style="font-size:0.9rem; color:#888; margin-bottom:30px;">AIRDROP ARCADE by nDAO</div>
+
+        <!-- $ARCADE Promo -->
+        <div style="padding:20px; background:linear-gradient(135deg, #065f46, #064e3b); border:2px solid #4ade80; border-radius:15px; text-align:center; max-width:320px;">
+            <div style="font-size:1.5rem; margin-bottom:10px;">🕹️</div>
+            <div style="font-size:1.2rem; font-weight:bold; color:#4ade80; margin-bottom:8px;">PAY WITH $ARCADE</div>
+            <div style="font-size:1rem; color:#fff; margin-bottom:10px;">Get <span style="color:#4ade80; font-weight:bold;">+2% BONUS</span> on all purchases!</div>
+            <div style="font-size:0.8rem; color:#ccc;">$XUSDC payments include +3.5% bonus</div>
+            <a href="https://ndao.org/arcade" target="_blank" style="display:inline-block; margin-top:12px; padding:8px 16px; background:#4ade80; color:#000; text-decoration:none; border-radius:6px; font-weight:bold; font-size:0.85rem;">Learn More</a>
+        </div>
+
+        <div style="margin-top:30px; font-size:0.8rem; color:#666;">The spirits are awakening...</div>
+        <div style="width:200px; height:4px; background:#333; border-radius:2px; margin-top:10px; overflow:hidden;">
+            <div style="width:100%; height:100%; background:linear-gradient(90deg, #9b59b6, #ffd700); animation:loading 1.5s ease-in-out infinite;"></div>
+        </div>
+    </div>
+    <style>
+        @keyframes loading { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
+        @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.7; transform: scale(1.1); } }
+        @keyframes shake { 0%, 100% { transform: translateX(0); } 20%, 60% { transform: translateX(-8px); } 40%, 80% { transform: translateX(8px); } }
+        .shake { animation: shake 0.5s ease-in-out; border-color: #ef4444 !important; }
+    </style>
+    <script>
+        window.addEventListener('load', function() {
+            setTimeout(function() {
+                const ls = document.getElementById('loadingScreen');
+                if (ls) { ls.style.opacity = '0'; setTimeout(() => ls.style.display = 'none', 500); }
+            }, 2500);
+        });
+    </script>
+
+    <header>
+        <div class="logo">
+            <span style="font-size:1.5rem;">🔮</span>
+            <span>Psychic Traveller</span>
+            <span style="font-size:0.6rem; color:var(--mystic-blue); margin-left:5px;">v1.0 [AIRDROP ARCADE by nDAO]</span>
+        </div>
+        <button id="connectBtn" class="wallet-btn">Connect Wallet</button>
+        <div id="walletInfo" class="hidden" style="display:flex; align-items:center; gap:10px;">
+            <span id="usernameDisplay" style="font-size:0.9rem; font-weight:bold;"></span>
+            <button id="logoutBtn" class="wallet-btn logout-btn">Log Out</button>
+        </div>
+    </header>
+
+    <div class="dashboard">
+        <section class="panel">
+            <div class="game-header">
+                <div class="credit-display">FREE (DAILY): <span id="freeWishesCount" class="free-count">0/1</span></div>
+                <div class="credit-display">CREDITS: <span id="purchasedWishesCount" style="color:var(--gold); font-weight:bold;">0</span></div>
+                <div class="credit-display">WISHES GRANTED: <span id="sessionWins" style="color:var(--arcade-green);">0</span></div>
+            </div>
+
+            <div class="fortune-stage">
+                <div class="traveller-container">
+                    <div class="traveller-title">Make Your Wish</div>
+                    <div class="traveller-subtitle">Your wish is my command... <span style="font-size:0.7rem; opacity:0.7;">(No basement at the Alamo though)</span></div>
+
+                    <div class="zoltar-container">
+                        <img src="https://ndao.org/arcade/games/Zoltarano_Speaks/ZOLTARANO.png" alt="Zoltarano" class="zoltar-image" id="crystalBall">
+                        <div class="zoltar-glow"></div>
+                        <div class="crystal-ball-inner" id="crystalInner">🌟</div>
+                    </div>
+                </div>
+
+                <!-- Result Overlay -->
+                <div class="result-overlay" id="resultOverlay">
+                    <div class="result-icon" id="resultIcon">🌟</div>
+                    <div class="result-title" id="resultTitle">Your Wish Is Granted!</div>
+                    <div class="result-message" id="resultMessage">The spirits have heard your plea and bestow their blessing upon you.</div>
+                    <div class="result-reward hidden" id="resultReward">
+                        <div class="amount" id="rewardAmount">+500 $ARCADE</div>
+                        <div class="label">Token Reward</div>
+                    </div>
+                    <div id="claimContainer" class="claim-container hidden"></div>
+                    <button class="game-btn wish-btn" id="resultCloseBtn" onclick="closeResult()">Continue</button>
+                </div>
+            </div>
+
+            <div class="controls-area">
+                <div class="wish-input-container">
+                    <label class="wish-input-label">Whisper your wish to the spirits...</label>
+                    <textarea id="wishInput" class="wish-input" placeholder="I wish for..." maxlength="180" rows="3" style="resize:none;"></textarea>
+                </div>
+
+                <div id="betSection" style="position:relative;z-index:100;">
+                    <input type="hidden" id="selectedPack" value="XUSDC_3">
+
+                    <div class="arcade-promo">
+                        <div class="title">🕹️ PAY WITH $ARCADE - GET +2% BONUS!</div>
+                        <div class="sub">$XUSDC = +3.5% bonus | <a href="https://ndao.org/arcade" target="_blank">Learn More</a></div>
+                    </div>
+
+                    <!-- Token Tabs -->
+                    <div class="token-tabs">
+                        <div class="token-tab active" data-token="XUSDC" onclick="switchToken('XUSDC')" style="border:1px solid #60a5fa;"><span class="icon">💵</span>XUSDC <span style="color:#60a5fa; font-size:0.7rem;">+3.5%</span></div>
+                        <div class="token-tab" data-token="ARCADE" onclick="switchToken('ARCADE')" style="background:linear-gradient(135deg, #065f46, #064e3b); border:2px solid #4ade80;"><span class="icon">🕹️</span>ARCADE <span style="color:#4ade80; font-size:0.7rem;">+2%</span></div>
+                        <div class="token-tab" data-token="NFTP" onclick="switchToken('NFTP')"><span class="icon">🎰</span>NFTP</div>
+                        <div class="token-tab" data-token="TITLET" onclick="switchToken('TITLET')"><span class="icon">📜</span>TITLET</div>
+                        <div class="token-tab" data-token="UBQTX" onclick="switchToken('UBQTX')"><span class="icon">🔷</span>UBQTX</div>
+                        <div class="token-tab" data-token="UBQT" onclick="switchToken('UBQT')"><span class="icon">🔶</span>UBQT</div>
+                        <div class="token-tab" data-token="NDAO" onclick="switchToken('NDAO')"><span class="icon">🏛️</span>NDAO</div>
+                        <div class="token-tab" data-token="NDAOX" onclick="switchToken('NDAOX')"><span class="icon">✖️</span>NDAOX</div>
+                        <div class="token-tab" data-token="PUSSY" onclick="switchToken('PUSSY')"><span class="icon">🐱</span>PUSSY</div>
+                        <div class="token-tab" data-token="AETHERT" onclick="switchToken('AETHERT')"><span class="icon">⚡</span>AETHERT</div>
+                        <div class="token-tab" data-token="XPRED" onclick="switchToken('XPRED')"><span class="icon">🔮</span>XPRED</div>
+                    </div>
+
+                    <div class="token-packs-container">
+                        <div id="packs_XUSDC" class="token-pack-list active"></div>
+                        <div id="packs_ARCADE" class="token-pack-list"></div>
+                        <div id="packs_NFTP" class="token-pack-list"></div>
+                        <div id="packs_TITLET" class="token-pack-list"></div>
+                        <div id="packs_UBQTX" class="token-pack-list"></div>
+                        <div id="packs_UBQT" class="token-pack-list"></div>
+                        <div id="packs_NDAO" class="token-pack-list"></div>
+                        <div id="packs_NDAOX" class="token-pack-list"></div>
+                        <div id="packs_PUSSY" class="token-pack-list"></div>
+                        <div id="packs_AETHERT" class="token-pack-list"></div>
+                        <div id="packs_XPRED" class="token-pack-list"></div>
+                    </div>
+
+                    <button id="btnWish" class="game-btn wish-btn" onclick="makeWish()">Connect Wallet</button>
+                </div>
+            </div>
+        </section>
+
+        <aside class="panel">
+            <!-- Payout Panel -->
+            <div id="payoutPanel" class="payout-panel hidden">
+                <div class="payout-header">
+                    <div class="payout-title">🎁 Token Rewards</div>
+                    <div style="text-align:right;">
+                        <div class="payout-balance" id="pendingPayout">0</div>
+                        <div class="payout-balance-label">$ARCADE Pending</div>
+                    </div>
+                </div>
+
+                <button id="claimPayoutBtn" class="claim-payout-btn" onclick="queuePayout()" disabled>
+                    Queue 0 $ARCADE Payout
+                </button>
+                <div class="payout-status" id="payoutStatus">Make wishes to earn token rewards!</div>
+            </div>
+
+            <!-- Stats Panel -->
+            <div id="statsPanel" class="stats-panel hidden">
+                <div class="sidebar-title" style="border:none; padding:0; margin-bottom:10px;">🔮 YOUR FORTUNE STATS</div>
+                <div class="stats-grid">
+                    <div class="stat-box highlight-green">
+                        <div class="stat-value" id="statWishesGranted">0</div>
+                        <div class="stat-label">Granted</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-value" id="statTokensWon">0</div>
+                        <div class="stat-label">Tokens Won</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-value" id="statFreeSpins">0</div>
+                        <div class="stat-label">Free Spins</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-value" id="statTotalWishes">0</div>
+                        <div class="stat-label">Total Wishes</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="sidebar-title">POSSIBLE OUTCOMES</div>
+            <div class="rewards-table">
+                <div class="reward-row"><span class="gold">✨ WISH GRANTED</span></div>
+                <div class="reward-row"><span class="highlight">🪙 TOKEN REWARD</span></div>
+                <div class="reward-row"><span class="mystic">🎰 FREE SPIN</span></div>
+                <div class="reward-row"><span style="color:#888">🔄 TRY AGAIN</span></div>
+            </div>
+
+            <div class="sidebar-title">TOKEN REWARDS</div>
+            <div class="rewards-table">
+                <div class="reward-row"><span>🥉 Small Blessing</span><span class="highlight">250 $ARCADE</span></div>
+                <div class="reward-row"><span>🥈 Medium Fortune</span><span class="highlight">500 $ARCADE</span></div>
+                <div class="reward-row"><span>🥇 Grand Prophecy</span><span class="highlight">1,000 $ARCADE</span></div>
+            </div>
+
+            <div class="sidebar-title">🏆 TOP 3 FORTUNE SEEKERS <a href="https://ndao.org/arcade/games/Zoltarano_Speaks/log.txt" target="_blank" style="font-size:0.6rem; color:var(--mystic-blue); text-decoration:none; float:right;">[View Log]</a></div>
+            <div class="leaderboard" id="leaderboard">
+                <div class="leader-row loading">
+                    <span style="color:var(--text-muted);">Loading leaderboard...</span>
+                </div>
+            </div>
+
+            <div class="sidebar-title">Live Activity</div>
+            <div class="activity-list" id="activityFeed"></div>
+            <a href="https://ndao.org/arcade/games/Zoltarano_Speaks/log.txt" target="_blank" style="display:block; text-align:center; margin:10px 0; padding:8px; background:linear-gradient(135deg, #4a90a4, #2c5364); border-radius:6px; color:#fff; text-decoration:none; font-size:0.8rem; font-weight:bold;">📜 VIEW LIVE RESULTS LOG</a>
+
+            <!-- Sponsor Section -->
+            <div class="sidebar-title" style="margin-top:15px;">✨ MYSTICAL SPONSORS</div>
+            <div class="sponsor-zone" id="sponsorZone">
+                <a id="sponsorLink" href="https://ndao.org/arcade" target="_blank">
+                    <img id="sponsorImg" class="sponsor-visual" src="" alt="Sponsor">
+                </a>
+            </div>
+        </aside>
+    </div>
+
+    <div id="toast" class="toast">Action Successful</div>
+    <div id="confetti"></div>
+
+    <!-- Audio Control Button -->
+    <button id="audioToggle" style="position:fixed; bottom:20px; left:20px; background:var(--bg-panel); border:1px solid var(--mystic-purple); color:white; padding:10px 15px; border-radius:8px; cursor:pointer; z-index:100; font-size:1.2rem;" onclick="toggleAudio()">🔊</button>
+
+    <footer>
+        <div style="margin-bottom:15px;">
+            <a href="https://ndao.org/arcade" style="color:var(--mystic-purple); text-decoration:none; margin:0 15px; font-weight:bold;">🎮 GAMES</a>
+            <a href="https://ndao.org/arcade/leaderboard" style="color:var(--gold); text-decoration:none; margin:0 15px; font-weight:bold;">🏆 LEADERBOARD</a>
+            <a href="https://ndao.org/arcade" style="color:var(--arcade-green); text-decoration:none; margin:0 15px; font-weight:bold;">🕹️ $ARCADE</a>
+            <a href="https://ndao.org/arcade/games/Zoltarano_Speaks/log.txt" target="_blank" style="color:#ff6b6b; text-decoration:none; margin:0 15px; font-weight:bold;">📜 SHOW LIVE RESULTS</a>
+        </div>
+        <p>&copy; 2025-2026 nDAO | Psychic Traveller v1.0 [AIRDROP ARCADE]</p>
+        <div style="font-size:0.7rem; opacity:0.6; margin-top:10px;">1 free wish per day. Token payouts via nftitledao.</div>
+
+        <!-- Disclaimer -->
+        <div style="margin-top:20px; padding:15px; background:rgba(0,0,0,0.3); border:1px solid #3a3350; border-radius:8px; max-width:600px; margin-left:auto; margin-right:auto;">
+            <div style="font-size:0.7rem; color:#888; line-height:1.5;">
+                <strong style="color:#ff6b6b;">DISCLAIMER:</strong> This game is for entertainment purposes only.
+                No real money gambling. $ARCADE tokens are promotional rewards with no guaranteed monetary value.
+                Play responsibly.
+                Results are determined by random number generation.
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // ========== SPOOKY AUDIO ENGINE ==========
+        class SpookyAudioEngine {
+            constructor() {
+                this.audioContext = null;
+                this.enabled = true;
+                this.bgMusicPlaying = false;
+                this.bgMusicGain = null;
+                this.masterGain = null;
+                this.initialized = false;
+            }
+
+            async init() {
+                if (this.initialized) return;
+                try {
+                    this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                    this.masterGain = this.audioContext.createGain();
+                    this.masterGain.gain.value = 0.5;
+                    this.masterGain.connect(this.audioContext.destination);
+                    this.initialized = true;
+                    console.log('Spooky Audio Engine initialized');
+                } catch (e) {
+                    console.log('Audio not available');
+                }
+            }
+
+            toggle() {
+                this.enabled = !this.enabled;
+                document.getElementById('audioToggle').textContent = this.enabled ? '🔊' : '🔇';
+                if (!this.enabled && this.bgMusicGain) {
+                    this.bgMusicGain.gain.value = 0;
+                } else if (this.enabled && this.bgMusicGain) {
+                    this.bgMusicGain.gain.value = 0.03; // Low volume to avoid buzzing
+                }
+            }
+
+            // Ambient drone completely disabled - oscillators cause buzzing
+            playAmbientDrone() {
+                // Disabled - sound effects still play on wins/losses
+                return;
+            }
+
+            // Spooky laugh sound effect
+            playLaugh() {
+                if (!this.enabled || !this.audioContext) return;
+
+                const laughGain = this.audioContext.createGain();
+                laughGain.connect(this.masterGain);
+
+                // Create a laughing effect with multiple oscillators
+                const laughTimes = [0, 0.15, 0.3, 0.5, 0.7, 0.95];
+                const laughPitches = [300, 350, 280, 320, 260, 240];
+
+                laughTimes.forEach((time, i) => {
+                    setTimeout(() => {
+                        if (!this.enabled) return;
+
+                        const osc = this.audioContext.createOscillator();
+                        const oscGain = this.audioContext.createGain();
+
+                        osc.type = 'sawtooth';
+                        osc.frequency.setValueAtTime(laughPitches[i], this.audioContext.currentTime);
+                        osc.frequency.exponentialRampToValueAtTime(laughPitches[i] * 0.7, this.audioContext.currentTime + 0.15);
+
+                        oscGain.gain.setValueAtTime(0.3, this.audioContext.currentTime);
+                        oscGain.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.15);
+
+                        osc.connect(oscGain);
+                        oscGain.connect(laughGain);
+
+                        osc.start();
+                        osc.stop(this.audioContext.currentTime + 0.2);
+                    }, time * 1000);
+                });
+            }
+
+            // Evil/creepy laugh
+            playEvilLaugh() {
+                if (!this.enabled || !this.audioContext) return;
+
+                const laughGain = this.audioContext.createGain();
+                laughGain.gain.value = 0.4;
+                laughGain.connect(this.masterGain);
+
+                // Deeper, more sinister laugh
+                const laughPattern = [
+                    { time: 0, pitch: 150, dur: 0.2 },
+                    { time: 0.25, pitch: 140, dur: 0.2 },
+                    { time: 0.5, pitch: 130, dur: 0.25 },
+                    { time: 0.8, pitch: 120, dur: 0.3 },
+                    { time: 1.15, pitch: 100, dur: 0.4 }
+                ];
+
+                laughPattern.forEach(note => {
+                    setTimeout(() => {
+                        if (!this.enabled) return;
+
+                        const osc = this.audioContext.createOscillator();
+                        const osc2 = this.audioContext.createOscillator();
+                        const oscGain = this.audioContext.createGain();
+
+                        osc.type = 'sawtooth';
+                        osc2.type = 'square';
+                        osc.frequency.value = note.pitch;
+                        osc2.frequency.value = note.pitch * 0.5;
+
+                        oscGain.gain.setValueAtTime(0.25, this.audioContext.currentTime);
+                        oscGain.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + note.dur);
+
+                        osc.connect(oscGain);
+                        osc2.connect(oscGain);
+                        oscGain.connect(laughGain);
+
+                        osc.start();
+                        osc2.start();
+                        osc.stop(this.audioContext.currentTime + note.dur + 0.1);
+                        osc2.stop(this.audioContext.currentTime + note.dur + 0.1);
+                    }, note.time * 1000);
+                });
+            }
+
+            // Crystal ball activation sound
+            playCrystalActivate() {
+                if (!this.enabled || !this.audioContext) return;
+
+                const osc = this.audioContext.createOscillator();
+                const osc2 = this.audioContext.createOscillator();
+                const gain = this.audioContext.createGain();
+
+                osc.type = 'sine';
+                osc2.type = 'triangle';
+
+                osc.frequency.setValueAtTime(200, this.audioContext.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(800, this.audioContext.currentTime + 1.5);
+                osc2.frequency.setValueAtTime(300, this.audioContext.currentTime);
+                osc2.frequency.exponentialRampToValueAtTime(1200, this.audioContext.currentTime + 1.5);
+
+                gain.gain.setValueAtTime(0, this.audioContext.currentTime);
+                gain.gain.linearRampToValueAtTime(0.3, this.audioContext.currentTime + 0.1);
+                gain.gain.linearRampToValueAtTime(0.2, this.audioContext.currentTime + 1);
+                gain.gain.linearRampToValueAtTime(0, this.audioContext.currentTime + 2);
+
+                osc.connect(gain);
+                osc2.connect(gain);
+                gain.connect(this.masterGain);
+
+                osc.start();
+                osc2.start();
+                osc.stop(this.audioContext.currentTime + 2.5);
+                osc2.stop(this.audioContext.currentTime + 2.5);
+            }
+
+            // Magic reveal sound
+            playMagicReveal() {
+                if (!this.enabled || !this.audioContext) return;
+
+                // Shimmering effect
+                for (let i = 0; i < 8; i++) {
+                    setTimeout(() => {
+                        if (!this.enabled) return;
+
+                        const osc = this.audioContext.createOscillator();
+                        const gain = this.audioContext.createGain();
+
+                        osc.type = 'sine';
+                        const baseFreq = 500 + (i * 100);
+                        osc.frequency.setValueAtTime(baseFreq, this.audioContext.currentTime);
+                        osc.frequency.exponentialRampToValueAtTime(baseFreq * 2, this.audioContext.currentTime + 0.3);
+
+                        gain.gain.setValueAtTime(0.15, this.audioContext.currentTime);
+                        gain.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.3);
+
+                        osc.connect(gain);
+                        gain.connect(this.masterGain);
+
+                        osc.start();
+                        osc.stop(this.audioContext.currentTime + 0.4);
+                    }, i * 80);
+                }
+            }
+
+            // Sad/lose sound
+            playSadSound() {
+                if (!this.enabled || !this.audioContext) return;
+
+                const osc = this.audioContext.createOscillator();
+                const gain = this.audioContext.createGain();
+
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(400, this.audioContext.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(200, this.audioContext.currentTime + 0.8);
+
+                gain.gain.setValueAtTime(0.3, this.audioContext.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.8);
+
+                osc.connect(gain);
+                gain.connect(this.masterGain);
+
+                osc.start();
+                osc.stop(this.audioContext.currentTime + 1);
+            }
+
+            // Coin/token sound
+            playCoinSound() {
+                if (!this.enabled || !this.audioContext) return;
+
+                const osc = this.audioContext.createOscillator();
+                const osc2 = this.audioContext.createOscillator();
+                const gain = this.audioContext.createGain();
+
+                osc.type = 'sine';
+                osc2.type = 'sine';
+                osc.frequency.value = 1200;
+                osc2.frequency.value = 1800;
+
+                gain.gain.setValueAtTime(0.3, this.audioContext.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.3);
+
+                osc.connect(gain);
+                osc2.connect(gain);
+                gain.connect(this.masterGain);
+
+                osc.start();
+                osc2.start();
+                osc.stop(this.audioContext.currentTime + 0.4);
+                osc2.stop(this.audioContext.currentTime + 0.4);
+            }
+        }
+
+        const spookyAudio = new SpookyAudioEngine();
+
+        // Deep Baritone Voice System using Web Speech API
+        class RoboticVoice {
+            constructor() {
+                this.synth = window.speechSynthesis;
+                this.enabled = true;
+            }
+
+            speak(text, pitch = 0.1, rate = 0.6) {
+                if (!this.enabled || !this.synth) return;
+
+                // Cancel any ongoing speech
+                this.synth.cancel();
+
+                const utterance = new SpeechSynthesisUtterance(text);
+
+                // Get voices and prefer deep male voices
+                const voices = this.synth.getVoices();
+                const deepVoice = voices.find(v =>
+                    v.name.toLowerCase().includes('daniel') ||
+                    v.name.toLowerCase().includes('thomas') ||
+                    v.name.toLowerCase().includes('david') ||
+                    v.name.toLowerCase().includes('james') ||
+                    v.name.toLowerCase().includes('male') ||
+                    v.name.toLowerCase().includes('guy')
+                ) || voices.find(v => v.lang.startsWith('en')) || voices[0];
+
+                if (deepVoice) utterance.voice = deepVoice;
+
+                // Very low pitch for deep baritone
+                utterance.pitch = pitch;
+                utterance.rate = rate;
+                utterance.volume = 0.9;
+
+                this.synth.speak(utterance);
+            }
+
+            speakWishGranted() {
+                this.speak("Your wish... is granted!", 0.1, 0.55);
+            }
+
+            speakTokens(amount) {
+                this.speak(`Have some tokens instead... ${amount} arcade tokens are yours!`, 0.1, 0.6);
+            }
+
+            speakThinkAboutIt() {
+                this.speak("I will think about it... Come back tomorrow for a free spin!", 0.15, 0.55);
+            }
+
+            speakTryAgain() {
+                this.speak("The spirits are silent... Try again!", 0.1, 0.6);
+            }
+
+            speakWelcome() {
+                this.speak("Welcome, seeker of fortunes... Make your wish!", 0.1, 0.5);
+            }
+
+            speakMakingWish() {
+                this.speak("The spirits are listening...", 0.05, 0.5);
+            }
+        }
+
+        const robotVoice = new RoboticVoice();
+
+        // Load voices when available
+        if (speechSynthesis.onvoiceschanged !== undefined) {
+            speechSynthesis.onvoiceschanged = () => {
+                console.log('Voices loaded:', speechSynthesis.getVoices().length);
+            };
+        }
+
+        // Audio toggle function
+        function toggleAudio() {
+            spookyAudio.toggle();
+            robotVoice.enabled = spookyAudio.enabled;
+        }
+
+        // Initialize audio on first user interaction
+        let audioInitialized = false;
+        document.addEventListener('click', async function initAudioOnClick() {
+            if (!audioInitialized) {
+                await spookyAudio.init();
+                spookyAudio.playAmbientDrone();
+                audioInitialized = true;
+            }
+        }, { once: false });
+
+        // ========== CONFIGURATION ==========
+        const CONFIG = {
+            appName: 'Psychic Traveller',
+            chainId: '384da888112027f0321850a169f737c33e53b388aad48b5adace4bab97f437e0',
+            endpoints: ['https://proton.greymass.com', 'https://proton.eosusa.io'],
+            contracts: {
+                arcade: 'tokencreate',
+                usdc: 'xtokens',
+                receiver: 'nftitledao',
+                escrow: 'nftitledao'
+            }
+        };
+
+        const CRYPTOBETS_CONFIG = {
+            ESCROW_ACCOUNT: 'nftitledao',
+            // All tokens from blackjack + other arcade games
+            TOKEN_CONTRACTS: {
+                XUSDC: 'xtokens',
+                USDC: 'xtokens',
+                ARCADE: 'tokencreate',
+                NFTP: 'tokencreate',
+                TITLET: 'tokencreate',
+                UBQTX: 'tokencreate',
+                UBQT: 'ubitquityllc',
+                NDAO: 'tokencreate',
+                NDAOX: 'tokencreate',
+                PUSSY: 'xprpussydao',
+                AETHERT: 'tokencreate',
+                XPRED: 'tokencreate'
+            },
+            TOKEN_PRECISION: {
+                XUSDC: 6,
+                USDC: 6,
+                ARCADE: 8,
+                NFTP: 8,
+                TITLET: 4,
+                UBQTX: 8,
+                UBQT: 4,
+                NDAO: 8,
+                NDAOX: 8,
+                PUSSY: 4,
+                AETHERT: 8,
+                XPRED: 8
+            },
+            // Bonus percentages for specific tokens
+            TOKEN_BONUSES: {
+                ARCADE: 2.0,   // +2% bonus wishes
+                XUSDC: 3.5     // +3.5% bonus wishes
+            },
+            OBFUSCATION_KEY: 'PSYCHIC_2025',
+            QUEUE_ENDPOINT: 'psychic_queue.php',
+            CREDITS_ENDPOINT: 'user_credits.php'
+        };
+
+        // GAME TYPE
+        const GAME_TYPE = 'psychic_traveller';
+
+        // ========== CRYPTOGRAPHICALLY FAIR RNG ==========
+        // Uses Web Crypto API for provably fair random number generation
+        class CryptoFairRNG {
+            constructor() {
+                this.lastSeed = null;
+                this.lastResult = null;
+            }
+
+            // Generate cryptographically secure random number between 0 and 1
+            async getSecureRandom() {
+                const array = new Uint32Array(1);
+                crypto.getRandomValues(array);
+                return array[0] / (0xFFFFFFFF + 1);
+            }
+
+            // Generate a verifiable seed for the outcome
+            async generateSeed(user, timestamp) {
+                const encoder = new TextEncoder();
+                const data = `${user}:${timestamp}:${crypto.getRandomValues(new Uint32Array(4)).join('')}`;
+                const hashBuffer = await crypto.subtle.digest('SHA-256', encoder.encode(data));
+                const hashArray = Array.from(new Uint8Array(hashBuffer));
+                return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+            }
+
+            // Determine outcome using cryptographic randomness
+            async determineOutcome(user) {
+                const timestamp = Date.now();
+                const seed = await this.generateSeed(user, timestamp);
+                const rand = await this.getSecureRandom();
+
+                // Store for verification
+                this.lastSeed = seed;
+                this.lastResult = rand;
+
+                return { rand, seed, timestamp };
+            }
+
+            // Get verification data for last outcome
+            getVerificationData() {
+                return {
+                    seed: this.lastSeed,
+                    result: this.lastResult
+                };
+            }
+        }
+
+        const cryptoRNG = new CryptoFairRNG();
+
+        // 50% House Edge Outcome Probabilities
+        // Total: 100% (20 + 10 + 8 + 2 + 10 + 50 = 100)
+        // Player favorable outcomes: 50% (win/tokens/spin)
+        // House edge (TRY AGAIN): 50%
+        const OUTCOMES = {
+            WISH_GRANTED: { probability: 0.20, label: 'Your Wish Is Granted!', icon: '✨', type: 'win' },
+            TOKENS_250: { probability: 0.10, label: 'Have Some Tokens!', icon: '🪙', type: 'tokens', amount: 250 },
+            TOKENS_500: { probability: 0.08, label: 'A Fortune Awaits!', icon: '💰', type: 'tokens', amount: 500 },
+            TOKENS_1000: { probability: 0.02, label: 'Grand Prophecy!', icon: '🏆', type: 'tokens', amount: 1000 },
+            FREE_SPIN: { probability: 0.10, label: 'I Will Think About It...', icon: '🎰', type: 'spin' },
+            TRY_AGAIN: { probability: 0.50, label: 'Try Again...', icon: '🔄', type: 'lose' }
+        };
+
+        // Pack pricing - matching blackjack structure
+        const XUSDC_PACKS = {
+            'XUSDC_3':    { wishes: 3,    usd: 0.30 },
+            'XUSDC_10':   { wishes: 10,   usd: 1.00 },
+            'XUSDC_25':   { wishes: 25,   usd: 2.50 },
+            'XUSDC_50':   { wishes: 50,   usd: 5.00 },
+            'XUSDC_100':  { wishes: 100,  usd: 10.00 },
+            'XUSDC_250':  { wishes: 250,  usd: 25.00 },
+            'XUSDC_500':  { wishes: 500,  usd: 50.00 },
+            'XUSDC_1000': { wishes: 1000, usd: 100.00 }
+        };
+
+        const PACK_TIERS = [
+            { wishes: 3,    usd: 0.30 },
+            { wishes: 10,   usd: 1.00 },
+            { wishes: 25,   usd: 2.50 },
+            { wishes: 50,   usd: 5.00 },
+            { wishes: 100,  usd: 10.00 },
+            { wishes: 250,  usd: 25.00 },
+            { wishes: 500,  usd: 50.00 },
+            { wishes: 1000, usd: 100.00 }
+        ];
+
+        // Fallback prices for all supported tokens
+        const FALLBACK_PRICES = {
+            XUSDC: 1.0,
+            USDC: 1.0,
+            ARCADE: 0.0001,
+            NFTP: 0.00001,
+            TITLET: 0.0001,
+            UBQTX: 0.000005,
+            UBQT: 0.0005,
+            NDAO: 0.000005,
+            NDAOX: 0.000005,
+            PUSSY: 0.000036,
+            AETHERT: 0.0001,
+            XPRED: 0.0001
+        };
+
+        let livePrices = { ...FALLBACK_PRICES };
+        let pricesLoaded = true;
+
+        // Memo Generator
+        class MemoGenerator {
+            constructor(key) {
+                this.key = key;
+                this.counter = Date.now();
+            }
+
+            async shortHash(data) {
+                const encoder = new TextEncoder();
+                const fullData = this.key + data + (this.counter++);
+                const hashBuffer = await crypto.subtle.digest('SHA-256', encoder.encode(fullData));
+                const hashArray = Array.from(new Uint8Array(hashBuffer));
+                return hashArray.slice(0, 4).map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
+            }
+
+            async purchaseMemo(user, packId, wishes) {
+                const hash = await this.shortHash(`${user}:${packId}:${wishes}`);
+                return `PW${hash}`;
+            }
+
+            async resultMemo(user, resultCode, amount) {
+                const hash = await this.shortHash(`${user}:${resultCode}:${amount}`);
+                return `${resultCode}${hash}`;
+            }
+        }
+
+        const memoGen = new MemoGenerator(CRYPTOBETS_CONFIG.OBFUSCATION_KEY);
+
+        // ========== STATE ==========
+        let session = null;
+        let link = null;
+        let freeWishesRemaining = 0;
+        let purchasedWishes = 0;
+        let pendingPayoutAmount = 0;
+        let sessionWins = 0;
+        let isWishing = false;
+        let lastPurchaseCurrency = null;
+
+        let userStats = {
+            total_wishes: 0,
+            wishes_granted: 0,
+            tokens_won: 0,
+            free_spins_earned: 0
+        };
+
+        // ========== DOM ELEMENTS ==========
+        const $ = id => document.getElementById(id);
+        const els = {
+            connect: $('connectBtn'),
+            logout: $('logoutBtn'),
+            walletInfo: $('walletInfo'),
+            user: $('usernameDisplay'),
+            wishBtn: $('btnWish'),
+            freeWishes: $('freeWishesCount'),
+            purchasedWishesDisplay: $('purchasedWishesCount'),
+            sessionWins: $('sessionWins'),
+            crystalBall: $('crystalBall'),
+            crystalInner: $('crystalInner'),
+            resultOverlay: $('resultOverlay'),
+            resultIcon: $('resultIcon'),
+            resultTitle: $('resultTitle'),
+            resultMessage: $('resultMessage'),
+            resultReward: $('resultReward'),
+            rewardAmount: $('rewardAmount'),
+            wishInput: $('wishInput'),
+            payoutPanel: $('payoutPanel'),
+            pendingPayout: $('pendingPayout'),
+            claimPayoutBtn: $('claimPayoutBtn'),
+            payoutStatus: $('payoutStatus'),
+            statsPanel: $('statsPanel'),
+            claimContainer: $('claimContainer')
+        };
+
+        // ========== PACK FUNCTIONS ==========
+        function getPack(packId) {
+            const parts = packId.split('_');
+            const token = parts[0];
+            const wishes = parseInt(parts[1]);
+
+            if (token === 'XUSDC') {
+                const pack = XUSDC_PACKS[packId];
+                if (pack) {
+                    return {
+                        wishes: pack.wishes,
+                        price: pack.usd,
+                        currency: 'XUSDC',
+                        symbol: 'XUSDC',
+                        precision: 6,
+                        contract: 'xtokens'
+                    };
+                }
+            }
+
+            const tier = PACK_TIERS.find(t => t.wishes === wishes);
+            if (tier && livePrices[token]) {
+                const price = tier.usd / livePrices[token];
+                return {
+                    wishes: tier.wishes,
+                    price: price,
+                    currency: token,
+                    symbol: token,
+                    precision: CRYPTOBETS_CONFIG.TOKEN_PRECISION[token] || 8,
+                    contract: CRYPTOBETS_CONFIG.TOKEN_CONTRACTS[token]
+                };
+            }
+
+            return null;
+        }
+
+        function populatePackLists() {
+            // All supported tokens
+            const tokens = ['XUSDC', 'ARCADE', 'NFTP', 'TITLET', 'UBQTX', 'UBQT', 'NDAO', 'NDAOX', 'PUSSY', 'AETHERT', 'XPRED'];
+
+            tokens.forEach(token => {
+                const container = document.getElementById('packs_' + token);
+                if (!container) return;
+
+                container.innerHTML = '';
+
+                // Check for bonus percentage
+                const bonusPercent = CRYPTOBETS_CONFIG.TOKEN_BONUSES[token] || 0;
+                const bonusLabel = bonusPercent > 0 ? ` <span style="color:#4ade80;font-size:0.7rem;">(+${bonusPercent}%)</span>` : '';
+
+                if (token === 'XUSDC') {
+                    Object.keys(XUSDC_PACKS).forEach((packId, idx) => {
+                        const pack = XUSDC_PACKS[packId];
+
+                        // Calculate bonus wishes for XUSDC
+                        const bonusWishes = bonusPercent > 0 ? Math.floor(pack.wishes * bonusPercent / 100) : 0;
+                        const bonusHtml = bonusWishes > 0 ? `<span style="color:#4ade80;font-size:0.75rem;"> +${bonusWishes}</span>` : '';
+
+                        const div = document.createElement('div');
+                        div.className = 'pack-option' + (idx === 0 ? ' selected' : '');
+                        div.dataset.pack = packId;
+                        div.onclick = () => selectPack(packId);
+                        div.innerHTML = `<span class="wishes">${pack.wishes}${bonusHtml} Wishes</span><span class="price">$${pack.usd.toFixed(2)}</span>`;
+                        container.appendChild(div);
+                    });
+                } else {
+                    const price = livePrices[token] || FALLBACK_PRICES[token];
+                    const precision = CRYPTOBETS_CONFIG.TOKEN_PRECISION[token] || 8;
+
+                    PACK_TIERS.forEach((tier, idx) => {
+                        const tokenAmount = tier.usd / price;
+                        const packId = `${token}_${tier.wishes}`;
+                        const priceLabel = tokenAmount < 1 ? tokenAmount.toFixed(precision) : Math.ceil(tokenAmount).toLocaleString();
+
+                        // Calculate bonus wishes for ARCADE
+                        const bonusWishes = bonusPercent > 0 ? Math.floor(tier.wishes * bonusPercent / 100) : 0;
+                        const bonusHtml = bonusWishes > 0 ? `<span style="color:#4ade80;font-size:0.75rem;"> +${bonusWishes}</span>` : '';
+
+                        const div = document.createElement('div');
+                        div.className = 'pack-option' + (idx === 0 ? ' selected' : '');
+                        div.dataset.pack = packId;
+                        div.onclick = () => selectPack(packId);
+                        div.innerHTML = `<span class="wishes">${tier.wishes}${bonusHtml} Wishes</span><span class="price">${priceLabel} ${token}</span>`;
+                        container.appendChild(div);
+                    });
+                }
+            });
+        }
+
+        // Helper to get micro-transaction quantity for recording wins
+        function getMicroQuantity(token) {
+            const precision = CRYPTOBETS_CONFIG.TOKEN_PRECISION[token] || 8;
+            const microAmount = (1 / Math.pow(10, precision)).toFixed(precision);
+            return `${microAmount} ${token}`;
+        }
+
+        // Record win on chain with micro transaction (same as blackjack)
+        async function recordWinOnChain(memo, tokenOverride = null) {
+            // Use token override, entry token (lastPurchaseCurrency), or fallback to ARCADE
+            const token = tokenOverride || lastPurchaseCurrency || 'ARCADE';
+            const contract = CRYPTOBETS_CONFIG.TOKEN_CONTRACTS[token] || 'tokencreate';
+            const quantity = getMicroQuantity(token);
+
+            try {
+                const btns = document.querySelectorAll('.record-btn');
+                btns.forEach(btn => { btn.disabled = true; btn.innerText = "Signing..."; });
+
+                await session.transact({
+                    actions: [{
+                        account: contract,
+                        name: 'transfer',
+                        authorization: [session.auth],
+                        data: {
+                            from: session.auth.actor,
+                            to: CONFIG.contracts.receiver,
+                            quantity: quantity,
+                            memo: memo
+                        }
+                    }]
+                });
+
+                showToast(`Proof of Win Recorded with ${token}!`);
+                const claimContainer = document.getElementById('claimContainer');
+                if (claimContainer) claimContainer.innerHTML = '<div style="color:#4ade80;">Recorded on chain!</div>';
+            } catch (e) {
+                console.log("Chain record skipped/failed:", e);
+                const btns = document.querySelectorAll('.record-btn');
+                btns.forEach(btn => { btn.disabled = false; btn.innerText = "Retry Recording"; });
+            }
+        }
+
+        let currentToken = 'XUSDC';
+
+        function switchToken(token) {
+            currentToken = token;
+
+            document.querySelectorAll('.token-tab').forEach(tab => {
+                tab.classList.toggle('active', tab.dataset.token === token);
+            });
+
+            document.querySelectorAll('.token-pack-list').forEach(list => {
+                list.classList.toggle('active', list.id === 'packs_' + token);
+            });
+
+            // ALWAYS update the hidden selectedPack input when switching tokens
+            const packList = document.getElementById('packs_' + token);
+            const selected = packList.querySelector('.pack-option.selected') || packList.querySelector('.pack-option');
+            if (selected) selectPack(selected.dataset.pack);
+        }
+
+        function selectPack(packId) {
+            document.querySelectorAll('.pack-option').forEach(opt => {
+                opt.classList.remove('selected');
+            });
+
+            const option = document.querySelector(`.pack-option[data-pack="${packId}"]`);
+            if (option) option.classList.add('selected');
+
+            document.getElementById('selectedPack').value = packId;
+            updateWishButton();
+        }
+
+        // ========== OUTCOME DETERMINATION ==========
+        // Uses 50% house edge
+        // Cryptographically fair outcome determination
+        async function determineOutcome() {
+            // Use cryptographically secure random number
+            const user = session ? session.auth.actor.toString() : 'anonymous';
+            const { rand, seed, timestamp } = await cryptoRNG.determineOutcome(user);
+
+            let cumulative = 0;
+
+            for (const [key, outcome] of Object.entries(OUTCOMES)) {
+                cumulative += outcome.probability;
+                if (rand < cumulative) {
+                    // Include verification data in result
+                    return { key, ...outcome, _seed: seed, _rand: rand, _timestamp: timestamp };
+                }
+            }
+
+            return { key: 'TRY_AGAIN', ...OUTCOMES.TRY_AGAIN, _seed: seed, _rand: rand, _timestamp: timestamp };
+        }
+
+        // ========== GAME LOGIC ==========
+        async function makeWish() {
+            if (isWishing) return;
+
+            // If not logged in, trigger login
+            if (!session) {
+                await login(false);
+                return;
+            }
+
+            // Require a wish to be entered - no blank wishes!
+            const wishText = els.wishInput.value.trim();
+            if (!wishText) {
+                showToast("You must enter a wish!");
+                els.wishInput.focus();
+                els.wishInput.classList.add('shake');
+                setTimeout(() => els.wishInput.classList.remove('shake'), 500);
+                return;
+            }
+
+            if (freeWishesRemaining > 0) {
+                const success = await useFreeWish();
+                if (!success) {
+                    updateWishButton();
+                    return;
+                }
+            } else if (purchasedWishes > 0) {
+                const success = await usePurchasedWish();
+                if (!success) {
+                    updateWishButton();
+                    return;
+                }
+            } else {
+                // Purchase pack
+                const packId = document.getElementById('selectedPack').value;
+                const pack = getPack(packId);
+
+                if (!pack) {
+                    showToast("Invalid pack selected");
+                    return;
+                }
+
+                // Get correct contract for this token (same pattern as blackjack)
+                const contract = pack.contract || CRYPTOBETS_CONFIG.TOKEN_CONTRACTS[pack.currency] || 'tokencreate';
+                const quantity = pack.price.toFixed(pack.precision) + ' ' + pack.symbol;
+                const memo = await memoGen.purchaseMemo(session.auth.actor.toString(), packId, pack.wishes);
+
+                try {
+                    els.wishBtn.disabled = true;
+                    els.wishBtn.innerText = "Signing...";
+
+                    await session.transact({
+                        actions: [{
+                            account: contract,
+                            name: 'transfer',
+                            authorization: [session.auth],
+                            data: {
+                                from: session.auth.actor,
+                                to: CONFIG.contracts.receiver,
+                                quantity: quantity,
+                                memo: memo
+                            }
+                        }]
+                    });
+
+                    showToast(`Pack Purchased: ${pack.wishes} Wishes Added!`);
+                    lastPurchaseCurrency = pack.currency;
+                    await addPurchasedWishes(pack.wishes, memo);
+
+                    const useSuccess = await usePurchasedWish();
+                    if (!useSuccess) {
+                        updateWishButton();
+                        return;
+                    }
+                } catch (e) {
+                    console.error(e);
+                    showToast("Transaction Cancelled");
+                    updateWishButton();
+                    return;
+                }
+            }
+
+            // Start the wish animation
+            isWishing = true;
+            els.wishBtn.disabled = true;
+            els.crystalBall.classList.add('active');
+            els.crystalInner.classList.remove('show');
+
+            // Play crystal activation sound and speak
+            spookyAudio.playCrystalActivate();
+            robotVoice.speakMakingWish();
+
+            // Animate crystal ball
+            const symbols = ['🌟', '✨', '💫', '⭐', '🔮', '🌙'];
+            let animIndex = 0;
+            const animInterval = setInterval(() => {
+                els.crystalInner.textContent = symbols[animIndex % symbols.length];
+                els.crystalInner.classList.add('show');
+                animIndex++;
+            }, 200);
+
+            // Determine outcome after animation
+            setTimeout(async () => {
+                clearInterval(animInterval);
+                els.crystalBall.classList.remove('active');
+
+                const outcome = await determineOutcome();
+                await showOutcome(outcome, wishText);
+
+                isWishing = false;
+                updateWishButton();
+                updateUI();
+            }, 2500);
+        }
+
+        async function showOutcome(outcome, wishText) {
+            els.crystalInner.textContent = outcome.icon;
+            els.crystalInner.classList.add('show');
+
+            userStats.total_wishes++;
+
+            let resultMessage = '';
+            let showReward = false;
+            let rewardText = '';
+
+            // Pop culture message arrays (Big 1988 & Pee-wee's Big Adventure 1985)
+            const winMessages = [
+                `Your wish is granted! "${wishText}" - Now you're BIG time!`,
+                `The spirits have spoken: "${wishText}" shall be! Your wish is my command!`,
+                `Just like Josh at the carnival... YOUR WISH IS GRANTED!`,
+                `"I wish to be big!" ...Wait, that's not what you wished for, but GRANTED anyway!`
+            ];
+
+            const tokenMessages = [
+                `The spirits offer you ${outcome.amount} $ARCADE tokens! Not quite "big" but still magical!`,
+                `Your wish card has been stamped! Here's ${outcome.amount} $ARCADE for your troubles!`,
+                `The machine whirs... ${outcome.amount} tokens fall out! It's like finding quarters at the arcade!`,
+                `${outcome.amount} $ARCADE tokens appear! The spirits are feeling generous today!`
+            ];
+
+            const spinMessages = [
+                `"I will think about it..." Come back tomorrow, like waiting for the toy store to open!`,
+                `The spirits need to consult the ancient texts... FREE SPIN granted for your patience!`,
+                `"There's no basement at the Alamo!" ...but there IS a free spin for you!`,
+                `The machine hums mysteriously... Return tomorrow for another chance!`
+            ];
+
+            const loseMessages = [
+                `The spirits are silent... Maybe try the basement of the Alamo?`,
+                `"THE STARS AT NIGHT ARE BIG AND BRIGHT..." but your fortune is not. Try again!`,
+                `Pssst... I heard the secret to winning is in the basement of the Alamo!`,
+                `The machine goes dark... Perhaps you need a bigger wish?`,
+                `"There's no basement at the Alamo!" ...and no win this time either!`
+            ];
+
+            switch (outcome.type) {
+                case 'win':
+                    resultMessage = winMessages[Math.floor(Math.random() * winMessages.length)];
+                    userStats.wishes_granted++;
+                    sessionWins++;
+                    createConfetti();
+                    // Play winning sounds
+                    spookyAudio.playMagicReveal();
+                    spookyAudio.playLaugh();
+                    setTimeout(() => robotVoice.speakWishGranted(), 500);
+                    break;
+
+                case 'tokens':
+                    resultMessage = tokenMessages[Math.floor(Math.random() * tokenMessages.length)];
+                    showReward = true;
+                    rewardText = `+${outcome.amount} $ARCADE`;
+                    userStats.tokens_won += outcome.amount;
+                    pendingPayoutAmount += outcome.amount;
+                    updatePayoutUI();
+                    createConfetti();
+                    // Play token sounds
+                    spookyAudio.playCoinSound();
+                    spookyAudio.playEvilLaugh();
+                    setTimeout(() => robotVoice.speakTokens(outcome.amount), 500);
+                    break;
+
+                case 'spin':
+                    resultMessage = spinMessages[Math.floor(Math.random() * spinMessages.length)];
+                    userStats.free_spins_earned++;
+                    // Add a free wish
+                    await addPurchasedWishes(1);
+                    showReward = true;
+                    rewardText = '+1 FREE WISH';
+                    // Play mystery sounds
+                    spookyAudio.playMagicReveal();
+                    setTimeout(() => robotVoice.speakThinkAboutIt(), 500);
+                    break;
+
+                case 'lose':
+                    resultMessage = loseMessages[Math.floor(Math.random() * loseMessages.length)];
+                    // Play sad sounds
+                    spookyAudio.playSadSound();
+                    spookyAudio.playEvilLaugh();
+                    setTimeout(() => robotVoice.speakTryAgain(), 800);
+                    break;
+            }
+
+            els.resultIcon.textContent = outcome.icon;
+            els.resultTitle.textContent = outcome.label;
+            els.resultMessage.textContent = resultMessage;
+
+            if (showReward) {
+                els.resultReward.classList.remove('hidden');
+                els.rewardAmount.textContent = rewardText;
+            } else {
+                els.resultReward.classList.add('hidden');
+            }
+
+            // Show record buttons for wins and token wins
+            const memo = await memoGen.resultMemo(session.auth.actor.toString(), outcome.key, outcome.amount || 0);
+            if (outcome.type === 'win' || outcome.type === 'tokens') {
+                const paymentToken = lastPurchaseCurrency;
+                let buttonsHtml = '<div style="font-size:0.8rem; color:#9ca3af; margin-bottom:8px;">Record proof of win on-chain:</div>';
+
+                // Show payment token button only if they paid with a token (not free wish)
+                if (paymentToken && paymentToken !== 'ARCADE') {
+                    buttonsHtml += `
+                        <button class="record-btn" onclick="recordWinOnChain('${memo}', '${paymentToken}')">
+                            Record with $${paymentToken}
+                        </button>
+                    `;
+                }
+
+                // Always show ARCADE option
+                buttonsHtml += `
+                    <button class="record-btn arcade-record" onclick="recordWinOnChain('${memo}', 'ARCADE')">
+                        Record with $ARCADE
+                    </button>
+                `;
+
+                els.claimContainer.innerHTML = buttonsHtml;
+                els.claimContainer.classList.remove('hidden');
+            } else {
+                els.claimContainer.classList.add('hidden');
+                els.claimContainer.innerHTML = '';
+            }
+
+            els.resultOverlay.classList.add('show');
+
+            // Log activity
+            logActivity(session.auth.actor, outcome.key, outcome.type);
+
+            // Save stats
+            saveLocalStats();
+            renderUserStats();
+
+            // Record result (memo already generated above)
+            await recordGameResult(outcome.key, wishText, memo);
+
+            // Log to backend (win, lose, try again all go to log.txt)
+            await logResultToBackend(
+                session.auth.actor.toString(),
+                outcome.key,
+                outcome.amount || 0,
+                wishText,
+                memo
+            );
+
+            // Refresh leaderboard after a few seconds
+            setTimeout(() => loadLeaderboard(), 2000);
+        }
+
+        function closeResult() {
+            els.resultOverlay.classList.remove('show');
+            els.crystalInner.classList.remove('show');
+            els.wishInput.value = '';
+        }
+
+        // ========== CREDIT MANAGEMENT (SERVER-SYNCED) ==========
+        async function addPurchasedWishes(wishes, memo = '') {
+            if (!session) return false;
+            const username = session.auth.actor.toString();
+
+            try {
+                // Sync with server
+                const response = await fetch(`credits.php?action=add&username=${username}&amount=${wishes}&memo=${encodeURIComponent(memo)}`);
+                const data = await response.json();
+
+                if (data.success) {
+                    purchasedWishes = data.wishes;
+                    // Also update localStorage as backup
+                    localStorage.setItem(`psychic_wishes_${username}`, purchasedWishes.toString());
+                } else {
+                    throw new Error(data.error || 'Server error');
+                }
+            } catch (e) {
+                console.warn('Server sync failed, using localStorage:', e);
+                // Fallback to localStorage
+                const key = `psychic_wishes_${username}`;
+                const current = parseInt(localStorage.getItem(key) || '0');
+                purchasedWishes = current + wishes;
+                localStorage.setItem(key, purchasedWishes.toString());
+            }
+
+            updateWishButton();
+            updateUI();
+            return true;
+        }
+
+        async function usePurchasedWish() {
+            if (!session) return false;
+            const username = session.auth.actor.toString();
+
+            if (purchasedWishes <= 0) {
+                showToast("No credits remaining");
+                return false;
+            }
+
+            try {
+                // Sync with server
+                const response = await fetch(`credits.php?action=use&username=${username}`);
+                const data = await response.json();
+
+                if (data.success) {
+                    purchasedWishes = data.wishes;
+                    localStorage.setItem(`psychic_wishes_${username}`, purchasedWishes.toString());
+                } else {
+                    throw new Error(data.error || 'Server error');
+                }
+            } catch (e) {
+                console.warn('Server sync failed, using localStorage:', e);
+                // Fallback to localStorage
+                const key = `psychic_wishes_${username}`;
+                const current = parseInt(localStorage.getItem(key) || '0');
+                if (current <= 0) {
+                    showToast("No credits remaining");
+                    return false;
+                }
+                purchasedWishes = current - 1;
+                localStorage.setItem(key, purchasedWishes.toString());
+            }
+
+            updateWishButton();
+            updateUI();
+            return true;
+        }
+
+        async function useFreeWish() {
+            if (!session) return false;
+            const username = session.auth.actor.toString();
+
+            if (freeWishesRemaining <= 0) {
+                showToast("No free wish remaining today");
+                return false;
+            }
+
+            try {
+                // Sync with server
+                const response = await fetch(`credits.php?action=use_free&username=${username}`);
+                const data = await response.json();
+
+                if (data.success) {
+                    freeWishesRemaining = 0;
+                    localStorage.setItem(`psychic_free_${username}_${new Date().toDateString()}`, 'true');
+                } else {
+                    throw new Error(data.error || 'Free wish already used');
+                }
+            } catch (e) {
+                console.warn('Server sync failed, using localStorage:', e);
+                // Fallback to localStorage
+                const key = `psychic_free_${username}_${new Date().toDateString()}`;
+                if (localStorage.getItem(key) === 'true') {
+                    showToast("No free wish remaining today");
+                    return false;
+                }
+                localStorage.setItem(key, 'true');
+                freeWishesRemaining = 0;
+            }
+
+            updateUI();
+            return true;
+        }
+
+        async function loadLocalData() {
+            if (!session) return;
+            const username = session.auth.actor.toString();
+
+            try {
+                // Load from server first
+                const response = await fetch(`credits.php?action=get&username=${username}`);
+                const data = await response.json();
+
+                if (data.success) {
+                    purchasedWishes = data.wishes;
+                    freeWishesRemaining = data.free_available ? 1 : 0;
+
+                    // Sync localStorage with server data
+                    localStorage.setItem(`psychic_wishes_${username}`, purchasedWishes.toString());
+                    if (!data.free_available) {
+                        localStorage.setItem(`psychic_free_${username}_${new Date().toDateString()}`, 'true');
+                    }
+                } else {
+                    throw new Error('Server returned error');
+                }
+            } catch (e) {
+                console.warn('Server load failed, using localStorage:', e);
+                // Fallback to localStorage
+                const wishesKey = `psychic_wishes_${username}`;
+                purchasedWishes = parseInt(localStorage.getItem(wishesKey) || '0');
+
+                const freeKey = `psychic_free_${username}_${new Date().toDateString()}`;
+                const freeUsed = localStorage.getItem(freeKey) === 'true';
+                freeWishesRemaining = freeUsed ? 0 : 1;
+            }
+
+            // Load local-only data (stats, payout)
+            const statsKey = `psychic_stats_${username}`;
+            const savedStats = localStorage.getItem(statsKey);
+            if (savedStats) {
+                try { userStats = JSON.parse(savedStats); } catch (e) {}
+            }
+
+            const payoutKey = `psychic_payout_${username}`;
+            pendingPayoutAmount = parseInt(localStorage.getItem(payoutKey) || '0');
+
+            updateUI();
+            updateWishButton();
+            renderUserStats();
+            updatePayoutUI();
+        }
+
+        function saveLocalStats() {
+            if (!session) return;
+            const statsKey = `psychic_stats_${session.auth.actor}`;
+            localStorage.setItem(statsKey, JSON.stringify(userStats));
+
+            const payoutKey = `psychic_payout_${session.auth.actor}`;
+            localStorage.setItem(payoutKey, pendingPayoutAmount.toString());
+        }
+
+        async function recordGameResult(resultCode, wish, memo) {
+            try {
+                const results = JSON.parse(localStorage.getItem('psychic_results') || '[]');
+                results.push({
+                    user: session.auth.actor.toString(),
+                    result: resultCode,
+                    wish: wish,
+                    memo: memo,
+                    timestamp: new Date().toISOString()
+                });
+                localStorage.setItem('psychic_results', JSON.stringify(results.slice(-200)));
+            } catch (e) {}
+        }
+
+        // ========== PAYOUT FUNCTIONS ==========
+        function updatePayoutUI() {
+            if (els.pendingPayout) {
+                els.pendingPayout.textContent = pendingPayoutAmount.toLocaleString();
+            }
+
+            if (els.claimPayoutBtn) {
+                els.claimPayoutBtn.disabled = pendingPayoutAmount <= 0;
+                els.claimPayoutBtn.textContent = pendingPayoutAmount > 0
+                    ? `Queue ${pendingPayoutAmount.toLocaleString()} $ARCADE Payout`
+                    : 'No Pending Payouts';
+            }
+
+            if (els.payoutStatus) {
+                if (pendingPayoutAmount > 0) {
+                    els.payoutStatus.textContent = `Click to queue for airdrop`;
+                } else {
+                    els.payoutStatus.textContent = 'Make wishes to earn token rewards!';
+                }
+            }
+        }
+
+        window.queuePayout = async function() {
+            if (!session || pendingPayoutAmount <= 0) return;
+
+            els.claimPayoutBtn.disabled = true;
+            els.claimPayoutBtn.textContent = 'Queueing...';
+
+            try {
+                const payoutAmount = pendingPayoutAmount;
+                const recipient = session.auth.actor.toString();
+                const memo = await memoGen.resultMemo(recipient, 'PAYOUT', payoutAmount);
+
+                // Store locally
+                const queue = JSON.parse(localStorage.getItem('psychic_payout_queue') || '[]');
+                queue.push({
+                    recipient: recipient,
+                    amount: payoutAmount,
+                    memo: memo,
+                    timestamp: new Date().toISOString()
+                });
+                localStorage.setItem('psychic_payout_queue', JSON.stringify(queue.slice(-100)));
+
+                showToast(`${payoutAmount.toLocaleString()} $ARCADE queued for payout!`);
+
+                pendingPayoutAmount = 0;
+                saveLocalStats();
+                updatePayoutUI();
+
+                els.payoutStatus.textContent = `Queued: ${payoutAmount.toLocaleString()} $ARCADE - Airdrop: Saturday batch`;
+
+            } catch (e) {
+                console.error('Queue error:', e);
+                showToast('Queue error - stored locally');
+            }
+
+            els.claimPayoutBtn.disabled = pendingPayoutAmount <= 0;
+            els.claimPayoutBtn.textContent = pendingPayoutAmount > 0
+                ? `Queue ${pendingPayoutAmount.toLocaleString()} $ARCADE Payout`
+                : 'No Pending Payouts';
+        };
+
+        // ========== UI FUNCTIONS ==========
+        function updateUI() {
+            els.freeWishes.innerText = `${freeWishesRemaining}/1`;
+            els.purchasedWishesDisplay.innerText = purchasedWishes.toLocaleString();
+            els.sessionWins.innerText = sessionWins;
+        }
+
+        function updateWishButton() {
+            if (!session) return;
+
+            els.wishBtn.disabled = false;
+
+            if (freeWishesRemaining > 0) {
+                els.wishBtn.innerHTML = `MAKE A WISH <br><span style="font-size:0.7rem">(FREE DAILY WISH)</span>`;
+                els.wishBtn.className = "game-btn wish-btn free-mode";
+            } else if (purchasedWishes > 0) {
+                els.wishBtn.innerHTML = `MAKE A WISH <br><span style="font-size:0.7rem">(${purchasedWishes.toLocaleString()} CREDIT${purchasedWishes > 1 ? 'S' : ''} LEFT)</span>`;
+                els.wishBtn.className = "game-btn wish-btn credit-mode";
+            } else {
+                const packId = document.getElementById('selectedPack').value;
+                const pack = getPack(packId);
+                if (pack) {
+                    let priceStr;
+                    if (pack.currency === 'XUSDC' || pack.currency === 'USDC') {
+                        priceStr = `$${pack.price.toFixed(2)}`;
+                    } else {
+                        const formatted = pack.price < 1 ? pack.price.toFixed(pack.precision) : Math.ceil(pack.price).toLocaleString();
+                        priceStr = `${formatted} ${pack.symbol}`;
+                    }
+                    els.wishBtn.innerHTML = `BUY ${pack.wishes} WISHES <br><span style="font-size:0.7rem">(${priceStr})</span>`;
+                } else {
+                    els.wishBtn.innerHTML = `BUY WISHES`;
+                }
+                els.wishBtn.className = "game-btn wish-btn";
+            }
+        }
+
+        function renderUserStats() {
+            els.statsPanel.classList.remove('hidden');
+            $('statWishesGranted').textContent = userStats.wishes_granted || 0;
+            $('statTokensWon').textContent = (userStats.tokens_won || 0).toLocaleString();
+            $('statFreeSpins').textContent = userStats.free_spins_earned || 0;
+            $('statTotalWishes').textContent = userStats.total_wishes || 0;
+        }
+
+        function logActivity(user, result, type) {
+            const div = document.createElement('div');
+            let cls = 'activity-item';
+            if (type === 'win') cls += ' win';
+            else if (type === 'tokens') cls += ' tokens';
+            else if (type === 'spin') cls += ' spin';
+
+            div.className = cls;
+            const icon = type === 'win' ? '✨' : type === 'tokens' ? '🪙' : type === 'spin' ? '🎰' : '🔄';
+            div.innerHTML = `<span>${icon} ${user}</span><span>${result.replace('_', ' ')}</span>`;
+            $('activityFeed').prepend(div);
+
+            // Keep only last 20 items
+            const items = $('activityFeed').querySelectorAll('.activity-item');
+            if (items.length > 20) items[items.length - 1].remove();
+        }
+
+        function showToast(msg) {
+            const t = $('toast');
+            t.innerText = msg;
+            t.classList.add('active');
+            setTimeout(() => t.classList.remove('active'), 3000);
+        }
+
+        function createConfetti() {
+            const c = $('confetti');
+            const colors = ['#9b59b6', '#ffd700', '#4ade80', '#3498db', '#e74c3c'];
+            for (let i = 0; i < 50; i++) {
+                const p = document.createElement('div');
+                p.style.cssText = `position:absolute;width:10px;height:10px;background:${colors[Math.floor(Math.random() * colors.length)]};left:${Math.random() * 100}%;top:-10px;animation:confettiFall ${1 + Math.random() * 2}s forwards;border-radius:50%;`;
+                p.innerHTML = `<style>@keyframes confettiFall { to { top:100vh; transform:rotate(720deg); } }</style>`;
+                c.appendChild(p);
+            }
+            setTimeout(() => c.innerHTML = '', 4000);
+        }
+
+        // ========== WALLET LOGIC ==========
+        async function login(isRestore = false) {
+            try {
+                els.connect.disabled = true;
+                els.connect.innerText = 'Connecting...';
+
+                const { link: protonLink, session: restoredSession } = await ProtonWebSDK({
+                    linkOptions: {
+                        endpoints: CONFIG.endpoints,
+                        chainId: CONFIG.chainId,
+                        restoreSession: isRestore
+                    },
+                    transportOptions: { requestAccount: 'nftitledao' },
+                    selectorOptions: {
+                        appName: CONFIG.appName,
+                        appLogo: 'https://nftp.store/token/airdrop/psychic/crystal_ball.png'
+                    }
+                });
+
+                link = protonLink;
+                session = restoredSession;
+
+                if (!session && link) {
+                    const loginResult = await link.login(CONFIG.appName);
+                    session = loginResult.session;
+                }
+
+                if (session && session.auth && session.auth.actor) {
+                    localStorage.setItem('psychic_wallet_authed', 'true');
+
+                    await loadLocalData();
+
+                    els.payoutPanel.classList.remove('hidden');
+                    els.statsPanel.classList.remove('hidden');
+
+                    renderSession();
+
+                    // Welcome the user with spooky voice
+                    setTimeout(() => {
+                        robotVoice.speakWelcome();
+                        spookyAudio.playMagicReveal();
+                    }, 1000);
+                } else {
+                    throw new Error("Failed to establish session");
+                }
+
+            } catch (e) {
+                console.error("Login Error/Cancel:", e.message || e);
+                session = null;
+                link = null;
+                localStorage.removeItem('psychic_wallet_authed');
+                renderSession();
+            }
+        }
+
+        async function logout() {
+            if (link && session) {
+                try { await link.removeSession(CONFIG.appName, session.auth, CONFIG.chainId); } catch (e) {}
+            }
+            session = null;
+            link = null;
+            freeWishesRemaining = 0;
+            purchasedWishes = 0;
+            sessionWins = 0;
+            pendingPayoutAmount = 0;
+            userStats = { total_wishes: 0, wishes_granted: 0, tokens_won: 0, free_spins_earned: 0 };
+
+            localStorage.removeItem('psychic_wallet_authed');
+
+            els.statsPanel.classList.add('hidden');
+            els.payoutPanel.classList.add('hidden');
+            renderSession();
+            showToast("Wallet disconnected");
+        }
+
+        function renderSession() {
+            els.connect.disabled = false;
+            els.connect.innerText = 'Connect Wallet';
+
+            if (session && session.auth) {
+                els.connect.classList.add('hidden');
+                els.walletInfo.classList.remove('hidden');
+                els.user.innerText = session.auth.actor;
+                updateWishButton();
+                updateUI();
+            } else {
+                els.connect.classList.remove('hidden');
+                els.walletInfo.classList.add('hidden');
+                els.wishBtn.innerText = "Connect Wallet to Play";
+                els.wishBtn.disabled = false;
+                els.wishBtn.className = "game-btn wish-btn";
+                els.freeWishes.innerText = "0/1";
+                els.purchasedWishesDisplay.innerText = "0";
+            }
+        }
+
+        // ========== INITIALIZATION ==========
+        // ========== LEADERBOARD & SPONSORS ==========
+
+        // Placeholder sponsors (will be replaced when sponsors endpoint is available)
+        const PLACEHOLDER_SPONSORS = [
+            {
+                img: 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="300" height="100" viewBox="0 0 300 100"><defs><linearGradient id="g1" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#9b59b6"/><stop offset="100%" style="stop-color:#3498db"/></linearGradient></defs><rect fill="url(#g1)" width="300" height="100" rx="10"/><text x="150" y="40" text-anchor="middle" fill="white" font-family="Arial" font-size="18" font-weight="bold">YOUR AD HERE</text><text x="150" y="65" text-anchor="middle" fill="#ddd" font-family="Arial" font-size="12">Advertise with Psychic Traveller</text><text x="150" y="85" text-anchor="middle" fill="#ffd700" font-family="Arial" font-size="10">ndao.org/arcade/sponsors</text></svg>'),
+                url: 'https://ndao.org/arcade/sponsors',
+                name: 'Your Ad Here'
+            },
+            {
+                img: 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="300" height="100" viewBox="0 0 300 100"><defs><linearGradient id="g2" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#065f46"/><stop offset="100%" style="stop-color:#064e3b"/></linearGradient></defs><rect fill="url(#g2)" width="300" height="100" rx="10"/><text x="150" y="35" text-anchor="middle" fill="#4ade80" font-family="Arial" font-size="20" font-weight="bold">$ARCADE</text><text x="150" y="58" text-anchor="middle" fill="white" font-family="Arial" font-size="14">The Airdrop Arcade Token</text><text x="150" y="80" text-anchor="middle" fill="#4ade80" font-family="Arial" font-size="11">+2% Bonus on all purchases!</text></svg>'),
+                url: 'https://ndao.org/arcade',
+                name: '$ARCADE Token'
+            },
+            {
+                img: 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="300" height="100" viewBox="0 0 300 100"><defs><linearGradient id="g3" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#1a1525"/><stop offset="100%" style="stop-color:#2a2335"/></linearGradient></defs><rect fill="url(#g3)" width="300" height="100" rx="10" stroke="#ffd700" stroke-width="2"/><text x="150" y="35" text-anchor="middle" fill="#ffd700" font-family="Arial" font-size="24">🔮</text><text x="150" y="60" text-anchor="middle" fill="white" font-family="Arial" font-size="16" font-weight="bold">nDAO Arcade</text><text x="150" y="82" text-anchor="middle" fill="#888" font-family="Arial" font-size="11">Play. Win. Earn Crypto.</text></svg>'),
+                url: 'https://ndao.org/arcade',
+                name: 'nDAO Arcade'
+            }
+        ];
+
+        let currentSponsorIndex = 0;
+        const SPONSORS_ENDPOINT = 'https://ndao.org/arcade/games/Zoltarano_Speaks/sponsors';
+
+        // Fetch and display leaderboard
+        async function loadLeaderboard() {
+            const leaderboardEl = document.getElementById('leaderboard');
+
+            try {
+                const response = await fetch(CRYPTOBETS_CONFIG.QUEUE_ENDPOINT + '?action=get_leaderboard');
+                const data = await response.json();
+
+                if (data.success && data.leaderboard && data.leaderboard.length > 0) {
+                    renderLeaderboard(data.leaderboard);
+                } else {
+                    // Show placeholder
+                    leaderboardEl.innerHTML = `
+                        <div class="leader-row">
+                            <span class="leader-rank">🥇</span>
+                            <span class="leader-name" style="color:var(--text-muted); font-style:italic;">Be the first!</span>
+                            <div class="leader-stats"><span class="wins">0 wins</span></div>
+                        </div>
+                    `;
+                }
+            } catch (e) {
+                console.log('Leaderboard fetch skipped:', e);
+                // Show placeholder on error
+                leaderboardEl.innerHTML = `
+                    <div class="leader-row">
+                        <span class="leader-rank">🥇</span>
+                        <span class="leader-name" style="color:var(--text-muted); font-style:italic;">Make a wish to join!</span>
+                        <div class="leader-stats"><span class="wins">---</span></div>
+                    </div>
+                `;
+            }
+        }
+
+        function renderLeaderboard(leaders) {
+            const leaderboardEl = document.getElementById('leaderboard');
+            const medals = ['🥇', '🥈', '🥉'];
+
+            leaderboardEl.innerHTML = leaders.map((leader, i) => `
+                <div class="leader-row">
+                    <span class="leader-rank">${medals[i] || (i + 1)}</span>
+                    <span class="leader-name">${leader.user}</span>
+                    <div class="leader-stats">
+                        <div class="wins">${leader.wins} wins</div>
+                        <div class="tokens">${leader.tokens.toLocaleString()} $ARCADE</div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Fetch recent activity from backend
+        async function loadRecentActivity() {
+            try {
+                const response = await fetch(CRYPTOBETS_CONFIG.QUEUE_ENDPOINT + '?action=get_recent');
+                const data = await response.json();
+
+                if (data.success && data.activity && data.activity.length > 0) {
+                    const activityFeed = document.getElementById('activityFeed');
+                    activityFeed.innerHTML = '';
+
+                    data.activity.forEach(item => {
+                        logActivity(item.user, item.result, item.result);
+                    });
+                }
+            } catch (e) {
+                console.log('Activity fetch skipped');
+            }
+        }
+
+        // Load sponsors (with fallback to placeholders)
+        async function loadSponsors() {
+            const sponsorImg = document.getElementById('sponsorImg');
+            const sponsorLink = document.getElementById('sponsorLink');
+
+            try {
+                // Try to fetch from sponsors endpoint
+                const response = await fetch(SPONSORS_ENDPOINT, { mode: 'cors' });
+
+                if (response.ok) {
+                    const sponsors = await response.json();
+                    if (sponsors && sponsors.length > 0) {
+                        // Use fetched sponsors
+                        setupSponsorRotation(sponsors);
+                        return;
+                    }
+                }
+            } catch (e) {
+                console.log('Using placeholder sponsors');
+            }
+
+            // Fallback to placeholder sponsors
+            setupSponsorRotation(PLACEHOLDER_SPONSORS);
+        }
+
+        function setupSponsorRotation(sponsors) {
+            const sponsorImg = document.getElementById('sponsorImg');
+            const sponsorLink = document.getElementById('sponsorLink');
+
+            // Initial sponsor
+            sponsorImg.src = sponsors[0].img;
+            sponsorLink.href = sponsors[0].url;
+
+            // Rotate every 8 seconds
+            setInterval(() => {
+                sponsorImg.style.opacity = '0';
+
+                setTimeout(() => {
+                    currentSponsorIndex = (currentSponsorIndex + 1) % sponsors.length;
+                    sponsorImg.src = sponsors[currentSponsorIndex].img;
+                    sponsorLink.href = sponsors[currentSponsorIndex].url;
+                    sponsorImg.style.opacity = '1';
+                }, 300);
+            }, 8000);
+        }
+
+        // Log result to backend
+        async function logResultToBackend(user, resultCode, tokensWon, wish, memo) {
+            try {
+                await fetch(CRYPTOBETS_CONFIG.QUEUE_ENDPOINT, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'log_result',
+                        user: user,
+                        result_code: resultCode,
+                        tokens_won: tokensWon,
+                        wish: wish,
+                        memo: memo
+                    })
+                });
+            } catch (e) {
+                console.log('Backend log skipped');
+            }
+        }
+
+        // ========== INITIALIZATION ==========
+        window.addEventListener('load', async () => {
+            populatePackLists();
+            loadLeaderboard();
+            loadSponsors();
+            loadRecentActivity();
+
+            if (localStorage.getItem('psychic_wallet_authed') === 'true') {
+                await login(true);
+            }
+        });
+
+        els.connect.addEventListener('click', () => login(false));
+        els.logout.addEventListener('click', logout);
+
+        // Close result on click outside
+        els.resultOverlay.addEventListener('click', function(e) {
+            if (e.target === els.resultOverlay) closeResult();
+        });
+
+        // Enter key to make wish
+        els.wishInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter' && session && !isWishing) {
+                makeWish();
+            }
+        });
+    </script>
+</body>
+</html>
