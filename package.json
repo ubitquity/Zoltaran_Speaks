@@ -1,0 +1,50 @@
+{
+  "name": "zoltaran-speaks",
+  "version": "2.0.0",
+  "description": "Decentralized Fortune Teller Game on Proton Blockchain",
+  "main": "index.html",
+  "scripts": {
+    "test": "jest --coverage",
+    "test:watch": "jest --watch",
+    "test:verbose": "jest --coverage --verbose"
+  },
+  "keywords": [
+    "blockchain",
+    "proton",
+    "game",
+    "fortune-teller",
+    "ipfs",
+    "smart-contract"
+  ],
+  "author": "nDAO Community",
+  "license": "MIT",
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "jest-environment-jsdom": "^29.7.0",
+    "@types/jest": "^29.5.12"
+  },
+  "jest": {
+    "testEnvironment": "jsdom",
+    "coverageDirectory": "coverage",
+    "collectCoverageFrom": [
+      "src/**/*.js"
+    ],
+    "coverageThreshold": {
+      "global": {
+        "branches": 90,
+        "functions": 85,
+        "lines": 100,
+        "statements": 100
+      }
+    },
+    "moduleFileExtensions": [
+      "js"
+    ],
+    "testMatch": [
+      "**/__tests__/**/*.test.js"
+    ],
+    "setupFilesAfterEnv": [
+      "<rootDir>/__tests__/setup.js"
+    ]
+  }
+}
