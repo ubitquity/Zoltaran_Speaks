@@ -21,6 +21,18 @@
 using namespace eosio;
 using namespace std;
 
+// AtomicAssets attribute variant type
+typedef std::variant<
+    int8_t, int16_t, int32_t, int64_t,
+    uint8_t, uint16_t, uint32_t, uint64_t,
+    float, double,
+    string,
+    vector<int8_t>, vector<int16_t>, vector<int32_t>, vector<int64_t>,
+    vector<uint8_t>, vector<uint16_t>, vector<uint32_t>, vector<uint64_t>,
+    vector<float>, vector<double>,
+    vector<string>
+> ATOMIC_ATTRIBUTE;
+
 CONTRACT zoltaranwish : public contract {
 public:
     using contract::contract;
@@ -98,6 +110,7 @@ public:
         uint32_t        total_wishes;       // Total wishes made
         uint32_t        total_wins;         // Total wish granted outcomes
         uint64_t        tokens_won;         // Total ARCADE tokens won
+        uint64_t        last_mintable_result; // Game result ID eligible for NFT mint (0 = none)
 
         uint64_t primary_key() const { return account.value; }
     };
@@ -288,6 +301,7 @@ public:
                     u.total_wishes = 0;
                     u.total_wins = 0;
                     u.tokens_won = 0;
+                    u.last_mintable_result = 0;
                 });
             } else {
                 check(user_itr->last_free_day < today, "Free wish already used today");
@@ -405,6 +419,14 @@ public:
             }
         }
 
+        // Get next result ID first (needed for mintable result tracking)
+        globals_singleton glob_table(get_self(), get_self().value);
+        globals glob = glob_table.exists() ? glob_table.get() : globals{1, 1};
+        uint64_t result_id = glob.next_result_id;
+
+        // Determine if this is a winning outcome (eligible for NFT mint)
+        bool is_winning = (result_code != OUTCOME_TRY_AGAIN);
+
         // Update user stats
         users_table users(get_self(), get_self().value);
         auto user_itr = users.find(player.value);
@@ -417,6 +439,7 @@ public:
                 u.total_wishes = 1;
                 u.total_wins = (result_code == OUTCOME_WISH_GRANTED) ? 1 : 0;
                 u.tokens_won = tokens_won;
+                u.last_mintable_result = is_winning ? result_id : 0;
             });
         } else {
             users.modify(user_itr, same_payer, [&](auto& u) {
@@ -428,6 +451,10 @@ public:
                     u.purchased_wishes++;
                 }
                 u.tokens_won += tokens_won;
+                // Set mintable result for winning outcomes (overwrites previous)
+                if (is_winning) {
+                    u.last_mintable_result = result_id;
+                }
             });
         }
 
@@ -437,12 +464,9 @@ public:
         }
 
         // Record game result
-        globals_singleton glob_table(get_self(), get_self().value);
-        globals glob = glob_table.exists() ? glob_table.get() : globals{1, 1};
-
         gamehistory_table history(get_self(), get_self().value);
         history.emplace(get_self(), [&](auto& g) {
-            g.id = glob.next_result_id;
+            g.id = result_id;
             g.player = player;
             g.result_code = result_code;
             g.tokens_won = tokens_won;
@@ -471,6 +495,69 @@ public:
 
         // Delete the commit
         commits.erase(commit_itr);
+    }
+
+    /**
+     * Mint a winning wish as an NFT via AtomicAssets
+     * @param player - User minting the NFT
+     * @param image_ipfs_cid - IPFS CID of the generated artwork
+     */
+    ACTION mintnft(name player, string image_ipfs_cid) {
+        require_auth(player);
+
+        config_singleton conf_table(get_self(), get_self().value);
+        check(conf_table.exists(), "Contract not configured");
+        config conf = conf_table.get();
+        check(!conf.paused, "Game is paused");
+
+        // Get user record and verify mintable result exists
+        users_table users(get_self(), get_self().value);
+        auto user_itr = users.find(player.value);
+        check(user_itr != users.end(), "User not found");
+        check(user_itr->last_mintable_result != 0, "No mintable result available");
+
+        uint64_t result_id = user_itr->last_mintable_result;
+
+        // Fetch game result from history
+        gamehistory_table history(get_self(), get_self().value);
+        auto result_itr = history.find(result_id);
+        check(result_itr != history.end(), "Game result not found");
+        check(result_itr->player == player, "Not your result");
+
+        // Get rarity and outcome strings
+        string rarity = get_rarity_string(result_itr->result_code);
+        string outcome = get_outcome_string(result_itr->result_code);
+
+        // Build immutable data for AtomicAssets
+        vector<pair<string, ATOMIC_ATTRIBUTE>> immutable_data;
+        immutable_data.push_back({"name", string("Zoltaran Wish #" + to_string(result_id))});
+        immutable_data.push_back({"img", string("ipfs://" + image_ipfs_cid)});
+        immutable_data.push_back({"rarity", rarity});
+        immutable_data.push_back({"wish_cid", result_itr->wish_ipfs_cid});
+        immutable_data.push_back({"game_id", result_id});
+        immutable_data.push_back({"outcome", outcome});
+        immutable_data.push_back({"minted_at", current_time_point().sec_since_epoch()});
+
+        // Call AtomicAssets to mint the NFT
+        action(
+            permission_level{get_self(), "active"_n},
+            "atomicassets"_n,
+            "mintasset"_n,
+            make_tuple(
+                get_self(),                     // authorized_minter
+                name("zoltaranwish"),           // collection_name
+                name("wishcard"),               // schema_name
+                player,                         // new_asset_owner
+                immutable_data,                 // immutable_data
+                vector<pair<string, ATOMIC_ATTRIBUTE>>{}, // mutable_data (empty)
+                vector<asset>{}                 // tokens_to_back (none)
+            )
+        ).send();
+
+        // Clear mintable result (can't mint same result twice)
+        users.modify(user_itr, same_payer, [&](auto& u) {
+            u.last_mintable_result = 0;
+        });
     }
 
     /**
@@ -542,6 +629,7 @@ public:
                 u.total_wishes = 0;
                 u.total_wins = 0;
                 u.tokens_won = 0;
+                u.last_mintable_result = 0;
             });
         } else {
             users.modify(user_itr, same_payer, [&](auto& u) {
@@ -642,6 +730,35 @@ private:
                 l.wins += wins_delta;
                 l.tokens_won += tokens_delta;
             });
+        }
+    }
+
+    /**
+     * Get rarity string from result code
+     */
+    string get_rarity_string(uint8_t result_code) {
+        switch (result_code) {
+            case OUTCOME_TOKENS_1000: return "Legendary";
+            case OUTCOME_TOKENS_500:  return "Epic";
+            case OUTCOME_TOKENS_250:  return "Rare";
+            case OUTCOME_WISH_GRANTED: return "Uncommon";
+            case OUTCOME_FREE_SPIN:   return "Common";
+            default: return "Unknown";
+        }
+    }
+
+    /**
+     * Get outcome string from result code
+     */
+    string get_outcome_string(uint8_t result_code) {
+        switch (result_code) {
+            case OUTCOME_WISH_GRANTED: return "Wish Granted";
+            case OUTCOME_TOKENS_250:   return "250 Tokens";
+            case OUTCOME_TOKENS_500:   return "500 Tokens";
+            case OUTCOME_TOKENS_1000:  return "1000 Tokens";
+            case OUTCOME_FREE_SPIN:    return "Free Spin";
+            case OUTCOME_TRY_AGAIN:    return "Try Again";
+            default: return "Unknown";
         }
     }
 };

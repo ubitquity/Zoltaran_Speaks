@@ -446,6 +446,51 @@
             box-shadow: 0 4px 15px rgba(139, 0, 0, 0.5);
         }
 
+        /* NFT Mint Button */
+        .result-overlay .nft-btn {
+            background: linear-gradient(135deg, #9932CC, #4B0082);
+            border: 2px solid #FFD700;
+            color: #FFD700;
+            padding: 12px 24px;
+            font-size: 1rem;
+            margin-top: 15px;
+            margin-bottom: 5px;
+            position: relative;
+            z-index: 5;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            cursor: pointer;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+        }
+
+        .result-overlay .nft-btn:hover {
+            background: linear-gradient(135deg, #BA55D3, #5a0099);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(153, 50, 204, 0.5);
+        }
+
+        .result-overlay .nft-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .result-overlay .nft-btn .nft-btn-icon {
+            font-size: 1.2rem;
+        }
+
+        .result-overlay .nft-btn.minting {
+            animation: mintPulse 1s ease-in-out infinite;
+        }
+
+        @keyframes mintPulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
         /* Controls */
         .controls-area {
             display: flex;
@@ -1110,6 +1155,9 @@
                         <div class="label">Token Reward</div>
                     </div>
                     <div id="claimContainer" class="claim-container hidden"></div>
+                    <button class="game-btn nft-btn hidden" id="mintNftBtn" onclick="mintNFT()">
+                        <span class="nft-btn-icon">🎴</span> Mint as NFT
+                    </button>
                     <button class="game-btn wish-btn" id="resultCloseBtn" onclick="closeResult()">Continue</button>
                 </div>
             </div>
@@ -1945,6 +1993,215 @@
 
         const zoltaranContract = new ZoltaranContract();
 
+        // ========== NFT MINTER CLASS ==========
+        const RARITY_COLORS = {
+            Legendary: { primary: '#FFD700', secondary: '#8B008B', glow: '#FFD700' },
+            Epic:      { primary: '#8B008B', secondary: '#0000FF', glow: '#9932CC' },
+            Rare:      { primary: '#0000FF', secondary: '#00FFFF', glow: '#1E90FF' },
+            Uncommon:  { primary: '#008000', secondary: '#008080', glow: '#00FF00' },
+            Common:    { primary: '#C0C0C0', secondary: '#808080', glow: '#FFFFFF' }
+        };
+
+        const RESULT_TO_RARITY = {
+            3: 'Legendary',  // TOKENS_1000
+            2: 'Epic',       // TOKENS_500
+            1: 'Rare',       // TOKENS_250
+            0: 'Uncommon',   // WISH_GRANTED
+            4: 'Common'      // FREE_SPIN
+        };
+
+        class NFTMinter {
+            constructor(ipfsClient, contract) {
+                this.ipfs = ipfsClient;
+                this.contract = contract;
+            }
+
+            hashToSeed(str) {
+                let hash = 0;
+                for (let i = 0; i < str.length; i++) {
+                    const char = str.charCodeAt(i);
+                    hash = ((hash << 5) - hash) + char;
+                    hash = hash & hash;
+                }
+                return Math.abs(hash);
+            }
+
+            seededRandom(seed) {
+                const x = Math.sin(seed) * 10000;
+                return x - Math.floor(x);
+            }
+
+            generateArt(wishText, rarity, resultId) {
+                const canvas = document.createElement('canvas');
+                canvas.width = 800;
+                canvas.height = 1000;
+                const ctx = canvas.getContext('2d');
+
+                const seed = this.hashToSeed(wishText + resultId);
+                const colors = RARITY_COLORS[rarity] || RARITY_COLORS.Common;
+
+                // Background gradient
+                const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+                gradient.addColorStop(0, '#0a0015');
+                gradient.addColorStop(0.5, '#1a0030');
+                gradient.addColorStop(1, '#0a0015');
+                ctx.fillStyle = gradient;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                // Starfield
+                for (let i = 0; i < 100; i++) {
+                    const starSeed = this.seededRandom(seed + i);
+                    const x = starSeed * canvas.width;
+                    const y = this.seededRandom(seed + i + 100) * canvas.height;
+                    const size = this.seededRandom(seed + i + 200) * 2 + 1;
+                    ctx.fillStyle = `rgba(255, 255, 255, ${this.seededRandom(seed + i + 300) * 0.5 + 0.5})`;
+                    ctx.beginPath();
+                    ctx.arc(x, y, size, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+
+                // Crystal ball
+                const centerX = canvas.width / 2;
+                const centerY = canvas.height / 2 - 50;
+                const ballRadius = 180;
+
+                // Glow
+                const glowGradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, ballRadius * 1.5);
+                glowGradient.addColorStop(0, colors.glow + '40');
+                glowGradient.addColorStop(0.5, colors.glow + '20');
+                glowGradient.addColorStop(1, 'transparent');
+                ctx.fillStyle = glowGradient;
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, ballRadius * 1.5, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Ball
+                const ballGradient = ctx.createRadialGradient(centerX - 50, centerY - 50, 0, centerX, centerY, ballRadius);
+                ballGradient.addColorStop(0, '#ffffff30');
+                ballGradient.addColorStop(0.3, colors.primary + '40');
+                ballGradient.addColorStop(0.7, colors.secondary + '60');
+                ballGradient.addColorStop(1, '#00000080');
+                ctx.fillStyle = ballGradient;
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, ballRadius, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Particles
+                for (let i = 0; i < 20; i++) {
+                    const angle = this.seededRandom(seed + i + 400) * Math.PI * 2;
+                    const dist = this.seededRandom(seed + i + 500) * ballRadius * 0.8;
+                    const px = centerX + Math.cos(angle) * dist;
+                    const py = centerY + Math.sin(angle) * dist;
+                    const psize = this.seededRandom(seed + i + 600) * 15 + 5;
+
+                    const particleGradient = ctx.createRadialGradient(px, py, 0, px, py, psize);
+                    particleGradient.addColorStop(0, colors.glow + 'CC');
+                    particleGradient.addColorStop(1, 'transparent');
+                    ctx.fillStyle = particleGradient;
+                    ctx.beginPath();
+                    ctx.arc(px, py, psize, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+
+                // Highlight
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.arc(centerX - 40, centerY - 40, ballRadius * 0.7, Math.PI * 1.2, Math.PI * 1.7);
+                ctx.stroke();
+
+                // Pedestal
+                ctx.fillStyle = '#2a1a3a';
+                ctx.beginPath();
+                ctx.ellipse(centerX, centerY + ballRadius + 20, 120, 30, 0, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#1a0a2a';
+                ctx.fillRect(centerX - 80, centerY + ballRadius + 20, 160, 60);
+
+                // Rarity badge
+                ctx.fillStyle = colors.primary;
+                ctx.font = 'bold 28px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText(rarity.toUpperCase(), centerX, 60);
+
+                // Title
+                ctx.fillStyle = '#ffffff';
+                ctx.font = 'bold 36px serif';
+                ctx.fillText('ZOLTARAN WISH', centerX, 110);
+                ctx.font = '24px serif';
+                ctx.fillText(`#${resultId}`, centerX, 145);
+
+                // Wish text
+                const displayWish = wishText.length > 50 ? wishText.slice(0, 47) + '...' : wishText;
+                ctx.fillStyle = '#cccccc';
+                ctx.font = 'italic 20px serif';
+                ctx.fillText(`"${displayWish}"`, centerX, canvas.height - 80);
+
+                // Outcome
+                const outcomeLabel = OUTCOME_CODES[this.getResultCodeFromRarity(rarity)]?.label || rarity;
+                ctx.fillStyle = colors.glow;
+                ctx.font = 'bold 24px Arial';
+                ctx.fillText(outcomeLabel, centerX, canvas.height - 40);
+
+                return canvas;
+            }
+
+            getResultCodeFromRarity(rarity) {
+                for (const [code, r] of Object.entries(RESULT_TO_RARITY)) {
+                    if (r === rarity) return parseInt(code);
+                }
+                return 5;
+            }
+
+            async uploadToIPFS(canvas, metadata) {
+                return new Promise((resolve, reject) => {
+                    canvas.toBlob(async (blob) => {
+                        try {
+                            const formData = new FormData();
+                            formData.append('file', blob, 'nft-art.png');
+
+                            const response = await fetch(this.ipfs.uploadUrl, {
+                                method: 'POST',
+                                body: formData
+                            });
+
+                            if (!response.ok) {
+                                throw new Error('IPFS upload failed');
+                            }
+
+                            const result = await response.json();
+                            resolve(result.Hash || result.cid);
+                        } catch (e) {
+                            reject(e);
+                        }
+                    }, 'image/png');
+                });
+            }
+
+            getRarity(resultCode) {
+                return RESULT_TO_RARITY[resultCode] || 'Common';
+            }
+
+            isEligibleForMint(resultCode) {
+                return resultCode !== 5;
+            }
+
+            async mint(session, imageCID) {
+                const result = await session.transact({
+                    actions: [{
+                        account: this.contract.contractAccount,
+                        name: 'mintnft',
+                        authorization: [session.auth],
+                        data: {
+                            player: session.auth.actor.toString(),
+                            image_ipfs_cid: imageCID
+                        }
+                    }]
+                });
+                return result;
+            }
+        }
+
         // ========== OUTCOME RESULT CODES ==========
         // Match smart contract outcome codes
         const OUTCOME_CODES = {
@@ -2050,6 +2307,10 @@
         let isWishing = false;
         let lastPurchaseCurrency = null;
 
+        // NFT Minting state
+        let currentMintableResult = null; // { resultCode, wishText, wishCid, resultId }
+        let isMintingNFT = false;
+
         let userStats = {
             total_wishes: 0,
             wishes_granted: 0,
@@ -2082,7 +2343,8 @@
             claimPayoutBtn: $('claimPayoutBtn'),
             payoutStatus: $('payoutStatus'),
             statsPanel: $('statsPanel'),
-            claimContainer: $('claimContainer')
+            claimContainer: $('claimContainer'),
+            mintNftBtn: $('mintNftBtn')
         };
 
         // ========== PACK FUNCTIONS ==========
@@ -2357,13 +2619,31 @@
                 // We need to check the gamehistory table for the latest result
                 const history = await zoltaranContract.getRecentHistory(1);
                 let outcome;
+                let resultId = null;
+                let resultCode = 5;
+
                 if (history.length > 0 && history[0].player === session.auth.actor.toString()) {
                     const result = history[0];
+                    resultCode = result.result_code;
+                    resultId = result.id;
                     outcome = parseOutcomeFromCode(result.result_code, result.tokens_won / 100000000);
                 } else {
                     // Fallback - parse from transaction traces
                     const parsed = zoltaranContract.parseRevealResult(revealResult);
+                    resultCode = parsed.resultCode;
                     outcome = parseOutcomeFromCode(parsed.resultCode, parsed.tokensWon);
+                }
+
+                // Set mintable result for winning outcomes (not TRY_AGAIN)
+                if (resultCode !== 5 && resultId) {
+                    currentMintableResult = {
+                        resultCode: resultCode,
+                        wishText: wishText,
+                        wishCid: wishIpfsCid,
+                        resultId: resultId
+                    };
+                } else {
+                    currentMintableResult = null;
                 }
 
                 els.crystalBall.classList.remove('active');
@@ -2565,6 +2845,15 @@
                 els.claimContainer.innerHTML = '';
             }
 
+            // Show NFT mint button for winning outcomes (not TRY_AGAIN)
+            if (outcome.type !== 'lose' && currentMintableResult) {
+                els.mintNftBtn.classList.remove('hidden');
+                els.mintNftBtn.disabled = false;
+                els.mintNftBtn.innerHTML = '<span class="nft-btn-icon">🎴</span> Mint as NFT';
+            } else {
+                els.mintNftBtn.classList.add('hidden');
+            }
+
             els.resultOverlay.classList.add('show');
 
             // Log activity locally
@@ -2585,6 +2874,76 @@
             els.resultOverlay.classList.remove('show');
             els.crystalInner.classList.remove('show');
             els.wishInput.value = '';
+            // Clear mintable result when closing (can only mint immediately after win)
+            currentMintableResult = null;
+        }
+
+        // ========== NFT MINTING ==========
+        async function mintNFT() {
+            if (!session || !currentMintableResult || isMintingNFT) {
+                return;
+            }
+
+            isMintingNFT = true;
+            els.mintNftBtn.disabled = true;
+            els.mintNftBtn.classList.add('minting');
+            els.mintNftBtn.innerHTML = '<span class="nft-btn-icon">🎴</span> Minting...';
+
+            try {
+                const { resultCode, wishText, wishCid, resultId } = currentMintableResult;
+
+                // Create NFT minter instance
+                const nftMinter = new NFTMinter(ipfsClient, zoltaranContract);
+
+                // Get rarity
+                const rarity = nftMinter.getRarity(resultCode);
+
+                // Generate artwork
+                const canvas = nftMinter.generateArt(wishText, rarity, resultId);
+
+                // Upload to IPFS
+                showToast("Generating NFT artwork...");
+                const metadata = {
+                    name: `Zoltaran Wish #${resultId}`,
+                    rarity,
+                    wishText,
+                    resultCode,
+                    timestamp: Date.now()
+                };
+                const imageCID = await nftMinter.uploadToIPFS(canvas, metadata);
+
+                // Mint on-chain
+                showToast("Minting NFT on blockchain...");
+                await nftMinter.mint(session, imageCID);
+
+                // Success!
+                els.mintNftBtn.innerHTML = '<span class="nft-btn-icon">✅</span> NFT Minted!';
+                showToast(`${rarity} NFT Minted! Check your wallet.`);
+
+                // Clear mintable result
+                currentMintableResult = null;
+
+                // Refresh user data
+                await refreshUserDataFromChain();
+
+            } catch (e) {
+                console.error('NFT minting failed:', e);
+
+                if (e.message?.includes('No mintable result')) {
+                    showToast("No mintable wish available");
+                } else if (e.message?.includes('cancelled') || e.message?.includes('Cancelled')) {
+                    showToast("Minting cancelled");
+                } else {
+                    showToast("Minting failed - try again");
+                }
+
+                // Reset button
+                els.mintNftBtn.innerHTML = '<span class="nft-btn-icon">🎴</span> Mint as NFT';
+                els.mintNftBtn.disabled = false;
+            }
+
+            isMintingNFT = false;
+            els.mintNftBtn.classList.remove('minting');
         }
 
         // ========== USER DATA MANAGEMENT (ON-CHAIN) ==========
