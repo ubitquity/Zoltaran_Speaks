@@ -1278,7 +1278,7 @@
             }
 
             async init() {
-                if (this.initialized) return;
+                if (this.initialized) return true;
                 try {
                     this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
                     this.masterGain = this.audioContext.createGain();
@@ -1590,13 +1590,17 @@
             contracts: {
                 arcade: 'tokencreate',
                 usdc: 'xtokens',
-                receiver: 'nftitledao',
-                escrow: 'nftitledao'
+                zoltaran: 'zoltaranwish', // Smart contract for decentralized game
+                receiver: 'zoltaranwish'  // Payments go to contract
+            },
+            ipfs: {
+                gateway: 'https://constellation.ubitquity.io/ipfs/',
+                uploadUrl: 'https://constellation.ubitquity.io/api/v0/add'
             }
         };
 
         const CRYPTOBETS_CONFIG = {
-            ESCROW_ACCOUNT: 'nftitledao',
+            CONTRACT_ACCOUNT: 'zoltaranwish', // Smart contract handles all game logic
             // All tokens from blackjack + other arcade games
             TOKEN_CONTRACTS: {
                 XUSDC: 'xtokens',
@@ -1626,78 +1630,344 @@
                 AETHERT: 8,
                 XPRED: 8
             },
-            // Bonus percentages for specific tokens
+            // Bonus percentages for specific tokens (configured on-chain)
             TOKEN_BONUSES: {
                 ARCADE: 2.0,   // +2% bonus wishes
                 XUSDC: 3.5     // +3.5% bonus wishes
-            },
-            OBFUSCATION_KEY: 'PSYCHIC_2025',
-            QUEUE_ENDPOINT: 'psychic_queue.php',
-            CREDITS_ENDPOINT: 'user_credits.php'
+            }
         };
 
         // GAME TYPE
         const GAME_TYPE = 'psychic_traveller';
 
-        // ========== CRYPTOGRAPHICALLY FAIR RNG ==========
-        // Uses Web Crypto API for provably fair random number generation
-        class CryptoFairRNG {
+        // ========== IPFS CLIENT (Constellation) ==========
+        // Handles wish text storage on decentralized IPFS
+        class ConstellationIPFS {
             constructor() {
-                this.lastSeed = null;
-                this.lastResult = null;
+                this.gateway = CONFIG.ipfs.gateway;
+                this.uploadUrl = CONFIG.ipfs.uploadUrl;
             }
 
-            // Generate cryptographically secure random number between 0 and 1
-            async getSecureRandom() {
-                const array = new Uint32Array(1);
+            // Upload wish text to IPFS, returns CID
+            async addWish(wishText) {
+                const wishData = {
+                    wish: wishText,
+                    timestamp: Date.now(),
+                    game: 'zoltaran_speaks',
+                    version: '2.0'
+                };
+
+                const formData = new FormData();
+                const blob = new Blob([JSON.stringify(wishData)], { type: 'application/json' });
+                formData.append('file', blob, 'wish.json');
+
+                try {
+                    const response = await fetch(this.uploadUrl, {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    if (!response.ok) {
+                        throw new Error('IPFS upload failed');
+                    }
+
+                    const result = await response.json();
+                    return result.Hash || result.cid;
+                } catch (e) {
+                    console.warn('IPFS upload failed, using fallback:', e);
+                    // Fallback: create a deterministic CID-like hash from the content
+                    const encoder = new TextEncoder();
+                    const hashBuffer = await crypto.subtle.digest('SHA-256', encoder.encode(JSON.stringify(wishData)));
+                    const hashArray = Array.from(new Uint8Array(hashBuffer));
+                    return 'Qm' + hashArray.map(b => b.toString(16).padStart(2, '0')).join('').slice(0, 44);
+                }
+            }
+
+            // Get gateway URL for a CID
+            getGatewayUrl(cid) {
+                return this.gateway + cid;
+            }
+        }
+
+        const ipfsClient = new ConstellationIPFS();
+
+        // ========== COMMIT-REVEAL CLIENT ==========
+        // Handles provably fair RNG through commit-reveal scheme
+        class CommitRevealClient {
+            constructor() {
+                this.pendingReveal = null;
+            }
+
+            // Generate a random 32-byte secret
+            async generateSecret() {
+                const array = new Uint8Array(32);
                 crypto.getRandomValues(array);
-                return array[0] / (0xFFFFFFFF + 1);
+                return Array.from(array).map(b => b.toString(16).padStart(2, '0')).join('');
             }
 
-            // Generate a verifiable seed for the outcome
-            async generateSeed(user, timestamp) {
+            // Generate commit hash from secret and IPFS CID
+            async generateCommitment(clientSecret, wishIpfsCid) {
+                const preimage = clientSecret + wishIpfsCid;
                 const encoder = new TextEncoder();
-                const data = `${user}:${timestamp}:${crypto.getRandomValues(new Uint32Array(4)).join('')}`;
-                const hashBuffer = await crypto.subtle.digest('SHA-256', encoder.encode(data));
+                const hashBuffer = await crypto.subtle.digest('SHA-256', encoder.encode(preimage));
                 const hashArray = Array.from(new Uint8Array(hashBuffer));
                 return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
             }
 
-            // Determine outcome using cryptographic randomness
-            async determineOutcome(user) {
-                const timestamp = Date.now();
-                const seed = await this.generateSeed(user, timestamp);
-                const rand = await this.getSecureRandom();
-
-                // Store for verification
-                this.lastSeed = seed;
-                this.lastResult = rand;
-
-                return { rand, seed, timestamp };
+            // Store pending reveal data locally
+            storePendingReveal(commitId, clientSecret, wishIpfsCid) {
+                this.pendingReveal = { commitId, clientSecret, wishIpfsCid };
+                // Also store in localStorage as backup
+                localStorage.setItem('zoltaran_pending_reveal', JSON.stringify(this.pendingReveal));
             }
 
-            // Get verification data for last outcome
-            getVerificationData() {
-                return {
-                    seed: this.lastSeed,
-                    result: this.lastResult
-                };
+            // Get pending reveal data
+            getPendingReveal() {
+                if (!this.pendingReveal) {
+                    const stored = localStorage.getItem('zoltaran_pending_reveal');
+                    if (stored) {
+                        this.pendingReveal = JSON.parse(stored);
+                    }
+                }
+                return this.pendingReveal;
+            }
+
+            // Clear pending reveal after successful reveal
+            clearPendingReveal() {
+                this.pendingReveal = null;
+                localStorage.removeItem('zoltaran_pending_reveal');
             }
         }
 
-        const cryptoRNG = new CryptoFairRNG();
+        const commitReveal = new CommitRevealClient();
 
-        // 50% House Edge Outcome Probabilities
+        // ========== SMART CONTRACT CLIENT ==========
+        // Handles all blockchain interactions with zoltaranwish contract
+        class ZoltaranContract {
+            constructor() {
+                this.contractAccount = CRYPTOBETS_CONFIG.CONTRACT_ACCOUNT;
+                this.rpcEndpoint = CONFIG.endpoints[0];
+            }
+
+            // Commit a wish (first step of commit-reveal)
+            async commit(session, commitHash, wishType) {
+                // Convert hex string to checksum256 format for EOSIO
+                const hashBytes = [];
+                for (let i = 0; i < commitHash.length; i += 2) {
+                    hashBytes.push(parseInt(commitHash.substring(i, i + 2), 16));
+                }
+
+                const result = await session.transact({
+                    actions: [{
+                        account: this.contractAccount,
+                        name: 'commit',
+                        authorization: [session.auth],
+                        data: {
+                            player: session.auth.actor.toString(),
+                            commit_hash: hashBytes,
+                            wish_type: wishType
+                        }
+                    }]
+                });
+
+                return result;
+            }
+
+            // Reveal a wish (second step of commit-reveal)
+            async reveal(session, commitId, clientSecret, wishIpfsCid) {
+                const result = await session.transact({
+                    actions: [{
+                        account: this.contractAccount,
+                        name: 'reveal',
+                        authorization: [session.auth],
+                        data: {
+                            player: session.auth.actor.toString(),
+                            commit_id: commitId,
+                            client_secret: clientSecret,
+                            wish_ipfs_cid: wishIpfsCid
+                        }
+                    }]
+                });
+
+                return result;
+            }
+
+            // Get user data from contract table
+            async getUserData(account) {
+                try {
+                    const response = await fetch(`${this.rpcEndpoint}/v1/chain/get_table_rows`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            json: true,
+                            code: this.contractAccount,
+                            scope: this.contractAccount,
+                            table: 'users',
+                            lower_bound: account,
+                            upper_bound: account,
+                            limit: 1
+                        })
+                    });
+
+                    const data = await response.json();
+                    if (data.rows && data.rows.length > 0) {
+                        return data.rows[0];
+                    }
+                    return null;
+                } catch (e) {
+                    console.error('Failed to get user data:', e);
+                    return null;
+                }
+            }
+
+            // Get leaderboard from contract table
+            async getLeaderboard(limit = 3) {
+                try {
+                    const response = await fetch(`${this.rpcEndpoint}/v1/chain/get_table_rows`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            json: true,
+                            code: this.contractAccount,
+                            scope: this.contractAccount,
+                            table: 'leaderboard',
+                            index_position: 2, // by_wins secondary index
+                            key_type: 'i64',
+                            limit: limit
+                        })
+                    });
+
+                    const data = await response.json();
+                    return data.rows || [];
+                } catch (e) {
+                    console.error('Failed to get leaderboard:', e);
+                    return [];
+                }
+            }
+
+            // Get recent game history from contract table
+            async getRecentHistory(limit = 10) {
+                try {
+                    const response = await fetch(`${this.rpcEndpoint}/v1/chain/get_table_rows`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            json: true,
+                            code: this.contractAccount,
+                            scope: this.contractAccount,
+                            table: 'gamehistory',
+                            index_position: 3, // by_time secondary index
+                            key_type: 'i64',
+                            reverse: true,
+                            limit: limit
+                        })
+                    });
+
+                    const data = await response.json();
+                    return data.rows || [];
+                } catch (e) {
+                    console.error('Failed to get history:', e);
+                    return [];
+                }
+            }
+
+            // Get pending commit for a player
+            async getPendingCommit(account) {
+                try {
+                    const response = await fetch(`${this.rpcEndpoint}/v1/chain/get_table_rows`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            json: true,
+                            code: this.contractAccount,
+                            scope: this.contractAccount,
+                            table: 'commits',
+                            index_position: 2, // by_player secondary index
+                            key_type: 'i64',
+                            lower_bound: account,
+                            upper_bound: account,
+                            limit: 1
+                        })
+                    });
+
+                    const data = await response.json();
+                    if (data.rows && data.rows.length > 0) {
+                        return data.rows[0];
+                    }
+                    return null;
+                } catch (e) {
+                    console.error('Failed to get pending commit:', e);
+                    return null;
+                }
+            }
+
+            // Parse reveal transaction result to get outcome
+            parseRevealResult(transactionResult) {
+                // The outcome is determined on-chain, we extract it from traces
+                // Look for inline transfer actions (token payouts) or the reveal action data
+                const traces = transactionResult?.processed?.action_traces || [];
+
+                let tokensWon = 0;
+                let resultCode = 5; // Default to TRY_AGAIN
+
+                for (const trace of traces) {
+                    // Check for inline transfer (token payout)
+                    if (trace.inline_traces) {
+                        for (const inlineTrace of trace.inline_traces) {
+                            if (inlineTrace.act?.name === 'transfer' &&
+                                inlineTrace.act?.account === CONFIG.contracts.arcade) {
+                                // Extract amount from quantity
+                                const quantity = inlineTrace.act?.data?.quantity || '';
+                                const match = quantity.match(/^([\d.]+)/);
+                                if (match) {
+                                    tokensWon = parseFloat(match[1]);
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Determine result code based on tokens won
+                if (tokensWon >= 1000) {
+                    resultCode = 3; // TOKENS_1000
+                } else if (tokensWon >= 500) {
+                    resultCode = 2; // TOKENS_500
+                } else if (tokensWon >= 250) {
+                    resultCode = 1; // TOKENS_250
+                }
+
+                // For WISH_GRANTED and FREE_SPIN, we need to check the contract return value
+                // This is a simplified version - full implementation would parse console output
+
+                return { resultCode, tokensWon };
+            }
+        }
+
+        const zoltaranContract = new ZoltaranContract();
+
+        // ========== OUTCOME RESULT CODES ==========
+        // Match smart contract outcome codes
+        const OUTCOME_CODES = {
+            0: { key: 'WISH_GRANTED', label: 'Your Wish Is Granted!', icon: '✨', type: 'win' },
+            1: { key: 'TOKENS_250', label: 'Have Some Tokens!', icon: '🪙', type: 'tokens', amount: 250 },
+            2: { key: 'TOKENS_500', label: 'A Fortune Awaits!', icon: '💰', type: 'tokens', amount: 500 },
+            3: { key: 'TOKENS_1000', label: 'Grand Prophecy!', icon: '🏆', type: 'tokens', amount: 1000 },
+            4: { key: 'FREE_SPIN', label: 'I Will Think About It...', icon: '🎰', type: 'spin' },
+            5: { key: 'TRY_AGAIN', label: 'Try Again...', icon: '🔄', type: 'lose' }
+        };
+
+        // 50% House Edge Outcome Probabilities (determined on-chain)
         // Total: 100% (20 + 10 + 8 + 2 + 10 + 50 = 100)
         // Player favorable outcomes: 50% (win/tokens/spin)
         // House edge (TRY AGAIN): 50%
+        // Note: Actual RNG happens on-chain via commit-reveal
         const OUTCOMES = {
-            WISH_GRANTED: { probability: 0.20, label: 'Your Wish Is Granted!', icon: '✨', type: 'win' },
-            TOKENS_250: { probability: 0.10, label: 'Have Some Tokens!', icon: '🪙', type: 'tokens', amount: 250 },
-            TOKENS_500: { probability: 0.08, label: 'A Fortune Awaits!', icon: '💰', type: 'tokens', amount: 500 },
-            TOKENS_1000: { probability: 0.02, label: 'Grand Prophecy!', icon: '🏆', type: 'tokens', amount: 1000 },
-            FREE_SPIN: { probability: 0.10, label: 'I Will Think About It...', icon: '🎰', type: 'spin' },
-            TRY_AGAIN: { probability: 0.50, label: 'Try Again...', icon: '🔄', type: 'lose' }
+            WISH_GRANTED: { code: 0, probability: 0.20, label: 'Your Wish Is Granted!', icon: '✨', type: 'win' },
+            TOKENS_250: { code: 1, probability: 0.10, label: 'Have Some Tokens!', icon: '🪙', type: 'tokens', amount: 250 },
+            TOKENS_500: { code: 2, probability: 0.08, label: 'A Fortune Awaits!', icon: '💰', type: 'tokens', amount: 500 },
+            TOKENS_1000: { code: 3, probability: 0.02, label: 'Grand Prophecy!', icon: '🏆', type: 'tokens', amount: 1000 },
+            FREE_SPIN: { code: 4, probability: 0.10, label: 'I Will Think About It...', icon: '🎰', type: 'spin' },
+            TRY_AGAIN: { code: 5, probability: 0.50, label: 'Try Again...', icon: '🔄', type: 'lose' }
         };
 
         // Pack pricing - matching blackjack structure
@@ -1977,28 +2247,18 @@
             updateWishButton();
         }
 
-        // ========== OUTCOME DETERMINATION ==========
-        // Uses 50% house edge
-        // Cryptographically fair outcome determination
-        async function determineOutcome() {
-            // Use cryptographically secure random number
-            const user = session ? session.auth.actor.toString() : 'anonymous';
-            const { rand, seed, timestamp } = await cryptoRNG.determineOutcome(user);
-
-            let cumulative = 0;
-
-            for (const [key, outcome] of Object.entries(OUTCOMES)) {
-                cumulative += outcome.probability;
-                if (rand < cumulative) {
-                    // Include verification data in result
-                    return { key, ...outcome, _seed: seed, _rand: rand, _timestamp: timestamp };
-                }
-            }
-
-            return { key: 'TRY_AGAIN', ...OUTCOMES.TRY_AGAIN, _seed: seed, _rand: rand, _timestamp: timestamp };
+        // ========== OUTCOME PARSING ==========
+        // Parse outcome from on-chain result
+        function parseOutcomeFromCode(resultCode, tokensWon) {
+            const outcomeInfo = OUTCOME_CODES[resultCode] || OUTCOME_CODES[5];
+            return {
+                key: outcomeInfo.key,
+                ...outcomeInfo,
+                amount: tokensWon || outcomeInfo.amount || 0
+            };
         }
 
-        // ========== GAME LOGIC ==========
+        // ========== GAME LOGIC (COMMIT-REVEAL) ==========
         async function makeWish() {
             if (isWishing) return;
 
@@ -2018,69 +2278,20 @@
                 return;
             }
 
+            // Determine wish type (free or purchased)
+            let wishType = 1; // WISH_TYPE_PURCHASED by default
+
             if (freeWishesRemaining > 0) {
-                const success = await useFreeWish();
-                if (!success) {
-                    updateWishButton();
-                    return;
-                }
+                wishType = 0; // WISH_TYPE_FREE
             } else if (purchasedWishes > 0) {
-                const success = await usePurchasedWish();
-                if (!success) {
-                    updateWishButton();
-                    return;
-                }
+                wishType = 1; // WISH_TYPE_PURCHASED
             } else {
-                // Purchase pack
-                const packId = document.getElementById('selectedPack').value;
-                const pack = getPack(packId);
-
-                if (!pack) {
-                    showToast("Invalid pack selected");
-                    return;
-                }
-
-                // Get correct contract for this token (same pattern as blackjack)
-                const contract = pack.contract || CRYPTOBETS_CONFIG.TOKEN_CONTRACTS[pack.currency] || 'tokencreate';
-                const quantity = pack.price.toFixed(pack.precision) + ' ' + pack.symbol;
-                const memo = await memoGen.purchaseMemo(session.auth.actor.toString(), packId, pack.wishes);
-
-                try {
-                    els.wishBtn.disabled = true;
-                    els.wishBtn.innerText = "Signing...";
-
-                    await session.transact({
-                        actions: [{
-                            account: contract,
-                            name: 'transfer',
-                            authorization: [session.auth],
-                            data: {
-                                from: session.auth.actor,
-                                to: CONFIG.contracts.receiver,
-                                quantity: quantity,
-                                memo: memo
-                            }
-                        }]
-                    });
-
-                    showToast(`Pack Purchased: ${pack.wishes} Wishes Added!`);
-                    lastPurchaseCurrency = pack.currency;
-                    await addPurchasedWishes(pack.wishes, memo);
-
-                    const useSuccess = await usePurchasedWish();
-                    if (!useSuccess) {
-                        updateWishButton();
-                        return;
-                    }
-                } catch (e) {
-                    console.error(e);
-                    showToast("Transaction Cancelled");
-                    updateWishButton();
-                    return;
-                }
+                // Need to purchase wishes first
+                await purchaseWishes();
+                return;
             }
 
-            // Start the wish animation
+            // Start the wish process
             isWishing = true;
             els.wishBtn.disabled = true;
             els.crystalBall.classList.add('active');
@@ -2090,27 +2301,158 @@
             spookyAudio.playCrystalActivate();
             robotVoice.speakMakingWish();
 
-            // Animate crystal ball
-            const symbols = ['🌟', '✨', '💫', '⭐', '🔮', '🌙'];
-            let animIndex = 0;
-            const animInterval = setInterval(() => {
-                els.crystalInner.textContent = symbols[animIndex % symbols.length];
-                els.crystalInner.classList.add('show');
-                animIndex++;
-            }, 200);
+            try {
+                // Step 1: Upload wish to IPFS
+                els.wishBtn.innerText = "Uploading...";
+                const wishIpfsCid = await ipfsClient.addWish(wishText);
+                console.log('Wish uploaded to IPFS:', wishIpfsCid);
 
-            // Determine outcome after animation
-            setTimeout(async () => {
+                // Step 2: Generate commit
+                els.wishBtn.innerText = "Preparing...";
+                const clientSecret = await commitReveal.generateSecret();
+                const commitHash = await commitReveal.generateCommitment(clientSecret, wishIpfsCid);
+                console.log('Commit hash generated');
+
+                // Step 3: Send commit transaction
+                els.wishBtn.innerText = "Commit...";
+                const commitResult = await zoltaranContract.commit(session, commitHash, wishType);
+                console.log('Commit transaction sent');
+
+                // Get commit ID from the transaction or table
+                const pendingCommit = await zoltaranContract.getPendingCommit(session.auth.actor.toString());
+                if (!pendingCommit) {
+                    throw new Error('Commit not found on chain');
+                }
+                const commitId = pendingCommit.id;
+
+                // Store reveal data
+                commitReveal.storePendingReveal(commitId, clientSecret, wishIpfsCid);
+
+                // Step 4: Wait for block finality with animation
+                els.wishBtn.innerText = "The spirits are listening...";
+                const symbols = ['🌟', '✨', '💫', '⭐', '🔮', '🌙'];
+                let animIndex = 0;
+                const animInterval = setInterval(() => {
+                    els.crystalInner.textContent = symbols[animIndex % symbols.length];
+                    els.crystalInner.classList.add('show');
+                    animIndex++;
+                }, 200);
+
+                // Wait 3 seconds for block finality
+                await new Promise(resolve => setTimeout(resolve, 3000));
                 clearInterval(animInterval);
-                els.crystalBall.classList.remove('active');
 
-                const outcome = await determineOutcome();
+                // Step 5: Send reveal transaction
+                els.wishBtn.innerText = "Revealing...";
+                const revealResult = await zoltaranContract.reveal(session, commitId, clientSecret, wishIpfsCid);
+                console.log('Reveal transaction sent');
+
+                // Clear pending reveal data
+                commitReveal.clearPendingReveal();
+
+                // Step 6: Refresh user data from chain to get updated stats
+                await refreshUserDataFromChain();
+
+                // Step 7: Parse outcome from transaction result
+                // We need to check the gamehistory table for the latest result
+                const history = await zoltaranContract.getRecentHistory(1);
+                let outcome;
+                if (history.length > 0 && history[0].player === session.auth.actor.toString()) {
+                    const result = history[0];
+                    outcome = parseOutcomeFromCode(result.result_code, result.tokens_won / 100000000);
+                } else {
+                    // Fallback - parse from transaction traces
+                    const parsed = zoltaranContract.parseRevealResult(revealResult);
+                    outcome = parseOutcomeFromCode(parsed.resultCode, parsed.tokensWon);
+                }
+
+                els.crystalBall.classList.remove('active');
                 await showOutcome(outcome, wishText);
 
-                isWishing = false;
-                updateWishButton();
-                updateUI();
-            }, 2500);
+            } catch (e) {
+                console.error('Wish failed:', e);
+                els.crystalBall.classList.remove('active');
+
+                if (e.message?.includes('already used today')) {
+                    showToast("Free wish already used today");
+                    freeWishesRemaining = 0;
+                } else if (e.message?.includes('No purchased wishes')) {
+                    showToast("No wishes available - purchase more!");
+                } else if (e.message?.includes('pending commit')) {
+                    showToast("You have a pending wish - please wait or try again");
+                    // Try to recover the pending reveal
+                    const pendingReveal = commitReveal.getPendingReveal();
+                    if (pendingReveal) {
+                        showToast("Attempting to reveal pending wish...");
+                        try {
+                            await zoltaranContract.reveal(
+                                session,
+                                pendingReveal.commitId,
+                                pendingReveal.clientSecret,
+                                pendingReveal.wishIpfsCid
+                            );
+                            commitReveal.clearPendingReveal();
+                            await refreshUserDataFromChain();
+                        } catch (revealError) {
+                            console.error('Recovery reveal failed:', revealError);
+                        }
+                    }
+                } else {
+                    showToast("Transaction cancelled or failed");
+                }
+            }
+
+            isWishing = false;
+            updateWishButton();
+            updateUI();
+        }
+
+        // Purchase wishes with token transfer to contract
+        async function purchaseWishes() {
+            const packId = document.getElementById('selectedPack').value;
+            const pack = getPack(packId);
+
+            if (!pack) {
+                showToast("Invalid pack selected");
+                return;
+            }
+
+            // Get correct contract for this token
+            const contract = pack.contract || CRYPTOBETS_CONFIG.TOKEN_CONTRACTS[pack.currency] || 'tokencreate';
+            const quantity = pack.price.toFixed(pack.precision) + ' ' + pack.symbol;
+            const memo = `WISHES:${pack.wishes}`;
+
+            try {
+                els.wishBtn.disabled = true;
+                els.wishBtn.innerText = "Signing...";
+
+                // Transfer tokens to contract with WISHES: memo
+                await session.transact({
+                    actions: [{
+                        account: contract,
+                        name: 'transfer',
+                        authorization: [session.auth],
+                        data: {
+                            from: session.auth.actor,
+                            to: CONFIG.contracts.zoltaran,
+                            quantity: quantity,
+                            memo: memo
+                        }
+                    }]
+                });
+
+                showToast(`${pack.wishes} Wishes Purchased!`);
+                lastPurchaseCurrency = pack.currency;
+
+                // Refresh user data from chain
+                await refreshUserDataFromChain();
+
+            } catch (e) {
+                console.error(e);
+                showToast("Transaction Cancelled");
+            }
+
+            updateWishButton();
         }
 
         async function showOutcome(outcome, wishText) {
@@ -2168,9 +2510,9 @@
                 case 'tokens':
                     resultMessage = tokenMessages[Math.floor(Math.random() * tokenMessages.length)];
                     showReward = true;
-                    rewardText = `+${outcome.amount} $ARCADE`;
+                    rewardText = `+${outcome.amount} $ARCADE (PAID INSTANTLY!)`;
                     userStats.tokens_won += outcome.amount;
-                    pendingPayoutAmount += outcome.amount;
+                    // Tokens are paid instantly on-chain - no pending queue needed!
                     updatePayoutUI();
                     createConfetti();
                     // Play token sounds
@@ -2182,10 +2524,9 @@
                 case 'spin':
                     resultMessage = spinMessages[Math.floor(Math.random() * spinMessages.length)];
                     userStats.free_spins_earned++;
-                    // Add a free wish
-                    await addPurchasedWishes(1);
+                    // Free wish is added on-chain by the contract
                     showReward = true;
-                    rewardText = '+1 FREE WISH';
+                    rewardText = '+1 FREE WISH (Added on-chain!)';
                     // Play mystery sounds
                     spookyAudio.playMagicReveal();
                     setTimeout(() => robotVoice.speakThinkAboutIt(), 500);
@@ -2211,29 +2552,13 @@
                 els.resultReward.classList.add('hidden');
             }
 
-            // Show record buttons for wins and token wins
-            const memo = await memoGen.resultMemo(session.auth.actor.toString(), outcome.key, outcome.amount || 0);
+            // Results are recorded on-chain automatically
+            // Show verification info for wins and token wins
             if (outcome.type === 'win' || outcome.type === 'tokens') {
-                const paymentToken = lastPurchaseCurrency;
-                let buttonsHtml = '<div style="font-size:0.8rem; color:#9ca3af; margin-bottom:8px;">Record proof of win on-chain:</div>';
-
-                // Show payment token button only if they paid with a token (not free wish)
-                if (paymentToken && paymentToken !== 'ARCADE') {
-                    buttonsHtml += `
-                        <button class="record-btn" onclick="recordWinOnChain('${memo}', '${paymentToken}')">
-                            Record with $${paymentToken}
-                        </button>
-                    `;
-                }
-
-                // Always show ARCADE option
-                buttonsHtml += `
-                    <button class="record-btn arcade-record" onclick="recordWinOnChain('${memo}', 'ARCADE')">
-                        Record with $ARCADE
-                    </button>
-                `;
-
-                els.claimContainer.innerHTML = buttonsHtml;
+                let infoHtml = '<div style="font-size:0.8rem; color:#4ade80; text-align:center;">';
+                infoHtml += 'Result recorded on blockchain!';
+                infoHtml += '</div>';
+                els.claimContainer.innerHTML = infoHtml;
                 els.claimContainer.classList.remove('hidden');
             } else {
                 els.claimContainer.classList.add('hidden');
@@ -2242,27 +2567,18 @@
 
             els.resultOverlay.classList.add('show');
 
-            // Log activity
+            // Log activity locally
             logActivity(session.auth.actor, outcome.key, outcome.type);
 
-            // Save stats
+            // Cache stats locally for display
             saveLocalStats();
             renderUserStats();
 
-            // Record result (memo already generated above)
-            await recordGameResult(outcome.key, wishText, memo);
-
-            // Log to backend (win, lose, try again all go to log.txt)
-            await logResultToBackend(
-                session.auth.actor.toString(),
-                outcome.key,
-                outcome.amount || 0,
-                wishText,
-                memo
-            );
-
-            // Refresh leaderboard after a few seconds
-            setTimeout(() => loadLeaderboard(), 2000);
+            // Refresh leaderboard and activity after a few seconds
+            setTimeout(() => {
+                loadLeaderboard();
+                loadRecentActivity();
+            }, 2000);
         }
 
         function closeResult() {
@@ -2271,152 +2587,55 @@
             els.wishInput.value = '';
         }
 
-        // ========== CREDIT MANAGEMENT (SERVER-SYNCED) ==========
-        async function addPurchasedWishes(wishes, memo = '') {
-            if (!session) return false;
-            const username = session.auth.actor.toString();
+        // ========== USER DATA MANAGEMENT (ON-CHAIN) ==========
+        // All user data is stored on the blockchain - no server needed!
 
-            try {
-                // Sync with server
-                const response = await fetch(`credits.php?action=add&username=${username}&amount=${wishes}&memo=${encodeURIComponent(memo)}`);
-                const data = await response.json();
-
-                if (data.success) {
-                    purchasedWishes = data.wishes;
-                    // Also update localStorage as backup
-                    localStorage.setItem(`psychic_wishes_${username}`, purchasedWishes.toString());
-                } else {
-                    throw new Error(data.error || 'Server error');
-                }
-            } catch (e) {
-                console.warn('Server sync failed, using localStorage:', e);
-                // Fallback to localStorage
-                const key = `psychic_wishes_${username}`;
-                const current = parseInt(localStorage.getItem(key) || '0');
-                purchasedWishes = current + wishes;
-                localStorage.setItem(key, purchasedWishes.toString());
-            }
-
-            updateWishButton();
-            updateUI();
-            return true;
-        }
-
-        async function usePurchasedWish() {
-            if (!session) return false;
-            const username = session.auth.actor.toString();
-
-            if (purchasedWishes <= 0) {
-                showToast("No credits remaining");
-                return false;
-            }
-
-            try {
-                // Sync with server
-                const response = await fetch(`credits.php?action=use&username=${username}`);
-                const data = await response.json();
-
-                if (data.success) {
-                    purchasedWishes = data.wishes;
-                    localStorage.setItem(`psychic_wishes_${username}`, purchasedWishes.toString());
-                } else {
-                    throw new Error(data.error || 'Server error');
-                }
-            } catch (e) {
-                console.warn('Server sync failed, using localStorage:', e);
-                // Fallback to localStorage
-                const key = `psychic_wishes_${username}`;
-                const current = parseInt(localStorage.getItem(key) || '0');
-                if (current <= 0) {
-                    showToast("No credits remaining");
-                    return false;
-                }
-                purchasedWishes = current - 1;
-                localStorage.setItem(key, purchasedWishes.toString());
-            }
-
-            updateWishButton();
-            updateUI();
-            return true;
-        }
-
-        async function useFreeWish() {
-            if (!session) return false;
-            const username = session.auth.actor.toString();
-
-            if (freeWishesRemaining <= 0) {
-                showToast("No free wish remaining today");
-                return false;
-            }
-
-            try {
-                // Sync with server
-                const response = await fetch(`credits.php?action=use_free&username=${username}`);
-                const data = await response.json();
-
-                if (data.success) {
-                    freeWishesRemaining = 0;
-                    localStorage.setItem(`psychic_free_${username}_${new Date().toDateString()}`, 'true');
-                } else {
-                    throw new Error(data.error || 'Free wish already used');
-                }
-            } catch (e) {
-                console.warn('Server sync failed, using localStorage:', e);
-                // Fallback to localStorage
-                const key = `psychic_free_${username}_${new Date().toDateString()}`;
-                if (localStorage.getItem(key) === 'true') {
-                    showToast("No free wish remaining today");
-                    return false;
-                }
-                localStorage.setItem(key, 'true');
-                freeWishesRemaining = 0;
-            }
-
-            updateUI();
-            return true;
-        }
-
-        async function loadLocalData() {
+        // Refresh user data from the smart contract
+        async function refreshUserDataFromChain() {
             if (!session) return;
             const username = session.auth.actor.toString();
 
             try {
-                // Load from server first
-                const response = await fetch(`credits.php?action=get&username=${username}`);
-                const data = await response.json();
+                const userData = await zoltaranContract.getUserData(username);
 
-                if (data.success) {
-                    purchasedWishes = data.wishes;
-                    freeWishesRemaining = data.free_available ? 1 : 0;
+                if (userData) {
+                    // Update local state from chain data
+                    purchasedWishes = userData.purchased_wishes || 0;
 
-                    // Sync localStorage with server data
-                    localStorage.setItem(`psychic_wishes_${username}`, purchasedWishes.toString());
-                    if (!data.free_available) {
-                        localStorage.setItem(`psychic_free_${username}_${new Date().toDateString()}`, 'true');
-                    }
+                    // Check if free wish is available (compare last_free_day to current day)
+                    const currentDay = Math.floor(Date.now() / 86400000);
+                    freeWishesRemaining = (userData.last_free_day < currentDay) ? 1 : 0;
+
+                    // Update stats from chain
+                    userStats.total_wishes = userData.total_wishes || 0;
+                    userStats.wishes_granted = userData.total_wins || 0;
+                    userStats.tokens_won = (userData.tokens_won || 0) / 100000000; // Convert from raw to display
                 } else {
-                    throw new Error('Server returned error');
+                    // New user - default values
+                    purchasedWishes = 0;
+                    freeWishesRemaining = 1; // New users get a free wish
+                    userStats = { total_wishes: 0, wishes_granted: 0, tokens_won: 0, free_spins_earned: 0 };
                 }
+
+                // Cache in localStorage for offline reference
+                localStorage.setItem(`zoltaran_user_${username}`, JSON.stringify({
+                    purchasedWishes,
+                    freeWishesRemaining,
+                    userStats,
+                    timestamp: Date.now()
+                }));
+
             } catch (e) {
-                console.warn('Server load failed, using localStorage:', e);
-                // Fallback to localStorage
-                const wishesKey = `psychic_wishes_${username}`;
-                purchasedWishes = parseInt(localStorage.getItem(wishesKey) || '0');
-
-                const freeKey = `psychic_free_${username}_${new Date().toDateString()}`;
-                const freeUsed = localStorage.getItem(freeKey) === 'true';
-                freeWishesRemaining = freeUsed ? 0 : 1;
+                console.warn('Chain load failed, using cached data:', e);
+                // Fallback to cached localStorage data
+                const cached = localStorage.getItem(`zoltaran_user_${username}`);
+                if (cached) {
+                    const data = JSON.parse(cached);
+                    purchasedWishes = data.purchasedWishes || 0;
+                    freeWishesRemaining = data.freeWishesRemaining || 1;
+                    userStats = data.userStats || { total_wishes: 0, wishes_granted: 0, tokens_won: 0, free_spins_earned: 0 };
+                }
             }
-
-            // Load local-only data (stats, payout)
-            const statsKey = `psychic_stats_${username}`;
-            const savedStats = localStorage.getItem(statsKey);
-            if (savedStats) {
-                try { userStats = JSON.parse(savedStats); } catch (e) {}
-            }
-
-            const payoutKey = `psychic_payout_${username}`;
-            pendingPayoutAmount = parseInt(localStorage.getItem(payoutKey) || '0');
 
             updateUI();
             updateWishButton();
@@ -2424,89 +2643,60 @@
             updatePayoutUI();
         }
 
-        function saveLocalStats() {
-            if (!session) return;
-            const statsKey = `psychic_stats_${session.auth.actor}`;
-            localStorage.setItem(statsKey, JSON.stringify(userStats));
-
-            const payoutKey = `psychic_payout_${session.auth.actor}`;
-            localStorage.setItem(payoutKey, pendingPayoutAmount.toString());
+        // Legacy alias for compatibility
+        async function loadLocalData() {
+            await refreshUserDataFromChain();
         }
 
-        async function recordGameResult(resultCode, wish, memo) {
+        function saveLocalStats() {
+            // Stats are saved on-chain, but we cache locally for display
+            if (!session) return;
+            const username = session.auth.actor.toString();
+            localStorage.setItem(`zoltaran_user_${username}`, JSON.stringify({
+                purchasedWishes,
+                freeWishesRemaining,
+                userStats,
+                timestamp: Date.now()
+            }));
+        }
+
+        async function recordGameResult(resultCode, wish, ipfsCid) {
+            // Game results are now recorded on-chain automatically by the reveal action
+            // This function just logs locally for quick reference
             try {
-                const results = JSON.parse(localStorage.getItem('psychic_results') || '[]');
+                const results = JSON.parse(localStorage.getItem('zoltaran_results') || '[]');
                 results.push({
                     user: session.auth.actor.toString(),
                     result: resultCode,
-                    wish: wish,
-                    memo: memo,
+                    wish_cid: ipfsCid,
                     timestamp: new Date().toISOString()
                 });
-                localStorage.setItem('psychic_results', JSON.stringify(results.slice(-200)));
+                localStorage.setItem('zoltaran_results', JSON.stringify(results.slice(-200)));
             } catch (e) {}
         }
 
-        // ========== PAYOUT FUNCTIONS ==========
+        // ========== PAYOUT FUNCTIONS (INSTANT ON-CHAIN) ==========
+        // Token payouts happen instantly on-chain during reveal - no queue needed!
         function updatePayoutUI() {
+            // Payouts are instant on-chain, so show total tokens won instead
             if (els.pendingPayout) {
-                els.pendingPayout.textContent = pendingPayoutAmount.toLocaleString();
+                els.pendingPayout.textContent = userStats.tokens_won?.toLocaleString() || '0';
             }
 
             if (els.claimPayoutBtn) {
-                els.claimPayoutBtn.disabled = pendingPayoutAmount <= 0;
-                els.claimPayoutBtn.textContent = pendingPayoutAmount > 0
-                    ? `Queue ${pendingPayoutAmount.toLocaleString()} $ARCADE Payout`
-                    : 'No Pending Payouts';
+                // No claiming needed - payouts are instant!
+                els.claimPayoutBtn.disabled = true;
+                els.claimPayoutBtn.textContent = 'Payouts are Instant!';
             }
 
             if (els.payoutStatus) {
-                if (pendingPayoutAmount > 0) {
-                    els.payoutStatus.textContent = `Click to queue for airdrop`;
-                } else {
-                    els.payoutStatus.textContent = 'Make wishes to earn token rewards!';
-                }
+                els.payoutStatus.textContent = 'Token rewards paid instantly on-chain!';
             }
         }
 
+        // Legacy function - payouts are now instant on-chain
         window.queuePayout = async function() {
-            if (!session || pendingPayoutAmount <= 0) return;
-
-            els.claimPayoutBtn.disabled = true;
-            els.claimPayoutBtn.textContent = 'Queueing...';
-
-            try {
-                const payoutAmount = pendingPayoutAmount;
-                const recipient = session.auth.actor.toString();
-                const memo = await memoGen.resultMemo(recipient, 'PAYOUT', payoutAmount);
-
-                // Store locally
-                const queue = JSON.parse(localStorage.getItem('psychic_payout_queue') || '[]');
-                queue.push({
-                    recipient: recipient,
-                    amount: payoutAmount,
-                    memo: memo,
-                    timestamp: new Date().toISOString()
-                });
-                localStorage.setItem('psychic_payout_queue', JSON.stringify(queue.slice(-100)));
-
-                showToast(`${payoutAmount.toLocaleString()} $ARCADE queued for payout!`);
-
-                pendingPayoutAmount = 0;
-                saveLocalStats();
-                updatePayoutUI();
-
-                els.payoutStatus.textContent = `Queued: ${payoutAmount.toLocaleString()} $ARCADE - Airdrop: Saturday batch`;
-
-            } catch (e) {
-                console.error('Queue error:', e);
-                showToast('Queue error - stored locally');
-            }
-
-            els.claimPayoutBtn.disabled = pendingPayoutAmount <= 0;
-            els.claimPayoutBtn.textContent = pendingPayoutAmount > 0
-                ? `Queue ${pendingPayoutAmount.toLocaleString()} $ARCADE Payout`
-                : 'No Pending Payouts';
+            showToast("Payouts are now instant on-chain!");
         };
 
         // ========== UI FUNCTIONS ==========
@@ -2618,7 +2808,7 @@
                 }
 
                 if (session && session.auth && session.auth.actor) {
-                    localStorage.setItem('psychic_wallet_authed', 'true');
+                    localStorage.setItem('zoltaran_wallet_authed', 'true');
 
                     await loadLocalData();
 
@@ -2640,7 +2830,7 @@
                 console.error("Login Error/Cancel:", e.message || e);
                 session = null;
                 link = null;
-                localStorage.removeItem('psychic_wallet_authed');
+                localStorage.removeItem('zoltaran_wallet_authed');
                 renderSession();
             }
         }
@@ -2657,7 +2847,7 @@
             pendingPayoutAmount = 0;
             userStats = { total_wishes: 0, wishes_granted: 0, tokens_won: 0, free_spins_earned: 0 };
 
-            localStorage.removeItem('psychic_wallet_authed');
+            localStorage.removeItem('zoltaran_wallet_authed');
 
             els.statsPanel.classList.add('hidden');
             els.payoutPanel.classList.add('hidden');
@@ -2712,15 +2902,20 @@
         const SPONSORS_ENDPOINT = 'https://ndao.org/arcade/games/Zoltarano_Speaks/sponsors';
 
         // Fetch and display leaderboard
+        // ========== LEADERBOARD (ON-CHAIN) ==========
         async function loadLeaderboard() {
             const leaderboardEl = document.getElementById('leaderboard');
 
             try {
-                const response = await fetch(CRYPTOBETS_CONFIG.QUEUE_ENDPOINT + '?action=get_leaderboard');
-                const data = await response.json();
+                // Fetch leaderboard from smart contract table
+                const leaders = await zoltaranContract.getLeaderboard(3);
 
-                if (data.success && data.leaderboard && data.leaderboard.length > 0) {
-                    renderLeaderboard(data.leaderboard);
+                if (leaders && leaders.length > 0) {
+                    renderLeaderboard(leaders.map(l => ({
+                        user: l.player,
+                        wins: l.wins,
+                        tokens: l.tokens_won / 100000000 // Convert from raw to display
+                    })));
                 } else {
                     // Show placeholder
                     leaderboardEl.innerHTML = `
@@ -2732,7 +2927,7 @@
                     `;
                 }
             } catch (e) {
-                console.log('Leaderboard fetch skipped:', e);
+                console.log('Leaderboard fetch from chain failed:', e);
                 // Show placeholder on error
                 leaderboardEl.innerHTML = `
                     <div class="leader-row">
@@ -2754,28 +2949,29 @@
                     <span class="leader-name">${leader.user}</span>
                     <div class="leader-stats">
                         <div class="wins">${leader.wins} wins</div>
-                        <div class="tokens">${leader.tokens.toLocaleString()} $ARCADE</div>
+                        <div class="tokens">${Math.floor(leader.tokens).toLocaleString()} $ARCADE</div>
                     </div>
                 </div>
             `).join('');
         }
 
-        // Fetch recent activity from backend
+        // ========== ACTIVITY FEED (ON-CHAIN) ==========
         async function loadRecentActivity() {
             try {
-                const response = await fetch(CRYPTOBETS_CONFIG.QUEUE_ENDPOINT + '?action=get_recent');
-                const data = await response.json();
+                // Fetch recent game history from smart contract table
+                const history = await zoltaranContract.getRecentHistory(10);
 
-                if (data.success && data.activity && data.activity.length > 0) {
+                if (history && history.length > 0) {
                     const activityFeed = document.getElementById('activityFeed');
                     activityFeed.innerHTML = '';
 
-                    data.activity.forEach(item => {
-                        logActivity(item.user, item.result, item.result);
+                    history.forEach(item => {
+                        const outcomeInfo = OUTCOME_CODES[item.result_code] || OUTCOME_CODES[5];
+                        logActivity(item.player, outcomeInfo.key, outcomeInfo.type);
                     });
                 }
             } catch (e) {
-                console.log('Activity fetch skipped');
+                console.log('Activity fetch from chain skipped:', e);
             }
         }
 
@@ -2825,24 +3021,12 @@
             }, 8000);
         }
 
-        // Log result to backend
-        async function logResultToBackend(user, resultCode, tokensWon, wish, memo) {
-            try {
-                await fetch(CRYPTOBETS_CONFIG.QUEUE_ENDPOINT, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        action: 'log_result',
-                        user: user,
-                        result_code: resultCode,
-                        tokens_won: tokensWon,
-                        wish: wish,
-                        memo: memo
-                    })
-                });
-            } catch (e) {
-                console.log('Backend log skipped');
-            }
+        // Log result - no longer needed for backend, results are on-chain
+        // This function is kept for local activity feed updates during gameplay
+        async function logResultToBackend(user, resultCode, tokensWon, wish, ipfsCid) {
+            // Results are now logged on-chain automatically by the reveal action
+            // Just update local activity feed
+            console.log(`Game result logged on-chain: ${user} - ${resultCode} - ${tokensWon} tokens`);
         }
 
         // ========== INITIALIZATION ==========
@@ -2852,7 +3036,13 @@
             loadSponsors();
             loadRecentActivity();
 
-            if (localStorage.getItem('psychic_wallet_authed') === 'true') {
+            // Auto-refresh leaderboard and activity every 30 seconds
+            setInterval(() => {
+                loadLeaderboard();
+                loadRecentActivity();
+            }, 30000);
+
+            if (localStorage.getItem('zoltaran_wallet_authed') === 'true') {
                 await login(true);
             }
         });

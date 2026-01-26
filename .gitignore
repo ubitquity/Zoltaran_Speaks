@@ -1,0 +1,16 @@
+# Dependencies
+node_modules/
+
+# Test coverage output
+coverage/
+
+# IDE and OS files
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Logs
+*.log
+npm-debug.log*
