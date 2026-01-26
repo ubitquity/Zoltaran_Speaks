@@ -1278,7 +1278,7 @@
             }
 
             async init() {
-                if (this.initialized) return;
+                if (this.initialized) return true;
                 try {
                     this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
                     this.masterGain = this.audioContext.createGain();
@@ -1754,7 +1754,7 @@
                 // Convert hex string to checksum256 format for EOSIO
                 const hashBytes = [];
                 for (let i = 0; i < commitHash.length; i += 2) {
-                    hashBytes.push(parseInt(commitHash.substr(i, 2), 16));
+                    hashBytes.push(parseInt(commitHash.substring(i, i + 2), 16));
                 }
 
                 const result = await session.transact({
@@ -2697,43 +2697,6 @@
         // Legacy function - payouts are now instant on-chain
         window.queuePayout = async function() {
             showToast("Payouts are now instant on-chain!");
-            return;
-
-            els.claimPayoutBtn.disabled = true;
-            els.claimPayoutBtn.textContent = 'Queueing...';
-
-            try {
-                const payoutAmount = pendingPayoutAmount;
-                const recipient = session.auth.actor.toString();
-                const memo = await memoGen.resultMemo(recipient, 'PAYOUT', payoutAmount);
-
-                // Store locally
-                const queue = JSON.parse(localStorage.getItem('psychic_payout_queue') || '[]');
-                queue.push({
-                    recipient: recipient,
-                    amount: payoutAmount,
-                    memo: memo,
-                    timestamp: new Date().toISOString()
-                });
-                localStorage.setItem('psychic_payout_queue', JSON.stringify(queue.slice(-100)));
-
-                showToast(`${payoutAmount.toLocaleString()} $ARCADE queued for payout!`);
-
-                pendingPayoutAmount = 0;
-                saveLocalStats();
-                updatePayoutUI();
-
-                els.payoutStatus.textContent = `Queued: ${payoutAmount.toLocaleString()} $ARCADE - Airdrop: Saturday batch`;
-
-            } catch (e) {
-                console.error('Queue error:', e);
-                showToast('Queue error - stored locally');
-            }
-
-            els.claimPayoutBtn.disabled = pendingPayoutAmount <= 0;
-            els.claimPayoutBtn.textContent = pendingPayoutAmount > 0
-                ? `Queue ${pendingPayoutAmount.toLocaleString()} $ARCADE Payout`
-                : 'No Pending Payouts';
         };
 
         // ========== UI FUNCTIONS ==========

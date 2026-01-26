@@ -50,6 +50,7 @@ describe('SpookyAudioEngine', () => {
 
         it('should handle AudioContext unavailable', async () => {
             const originalAudioContext = global.AudioContext;
+            const originalWebkitAudioContext = global.webkitAudioContext;
             global.AudioContext = undefined;
             global.webkitAudioContext = undefined;
 
@@ -59,6 +60,7 @@ describe('SpookyAudioEngine', () => {
             expect(result).toBe(false);
 
             global.AudioContext = originalAudioContext;
+            global.webkitAudioContext = originalWebkitAudioContext;
         });
     });
 

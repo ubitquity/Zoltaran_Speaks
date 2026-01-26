@@ -4,6 +4,9 @@
 
 set -e
 
+# Navigate to script directory (allows running from any location)
+cd "$(dirname "$0")"
+
 echo "Building Zoltaran Speaks Smart Contract..."
 
 # Direct compilation with eosio-cpp

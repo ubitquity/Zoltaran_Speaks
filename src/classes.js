@@ -50,7 +50,7 @@ class SpookyAudioEngine {
     }
 
     async init() {
-        if (this.initialized) return;
+        if (this.initialized) return true;
         try {
             this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
             this.masterGain = this.audioContext.createGain();
@@ -269,7 +269,7 @@ class ZoltaranContract {
     async commit(session, commitHash, wishType) {
         const hashBytes = [];
         for (let i = 0; i < commitHash.length; i += 2) {
-            hashBytes.push(parseInt(commitHash.substr(i, 2), 16));
+            hashBytes.push(parseInt(commitHash.substring(i, i + 2), 16));
         }
 
         const result = await session.transact({

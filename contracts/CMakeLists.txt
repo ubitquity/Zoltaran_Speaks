@@ -22,7 +22,6 @@ add_contract(zoltaranwish zoltaranwish
     ${CMAKE_CURRENT_SOURCE_DIR}/zoltaranwish.cpp
 )
 
-# Generate ABI
-target_ricardian_directory(zoltaranwish
-    ${CMAKE_CURRENT_SOURCE_DIR}/ricardian
-)
+# Note: Ricardian contracts not included in this version
+# To add legal clauses, create a ricardian/ directory and uncomment:
+# target_ricardian_directory(zoltaranwish ${CMAKE_CURRENT_SOURCE_DIR}/ricardian)

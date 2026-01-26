@@ -10,12 +10,8 @@ const nodeCrypto = require('crypto');
 const cryptoSubtle = {
     digest: async (algorithm, data) => {
         const hash = nodeCrypto.createHash('sha256');
-        // Handle both Buffer and Uint8Array input
-        if (data instanceof Uint8Array || Buffer.isBuffer(data)) {
-            hash.update(Buffer.from(data));
-        } else {
-            hash.update(Buffer.from(data));
-        }
+        // Buffer.from handles both Buffer and Uint8Array input
+        hash.update(Buffer.from(data));
         const result = hash.digest();
         // Return an ArrayBuffer
         return result.buffer.slice(result.byteOffset, result.byteOffset + result.byteLength);
