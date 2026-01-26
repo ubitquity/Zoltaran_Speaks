@@ -163,7 +163,7 @@ The game runs on a custom EOSIO smart contract deployed on Proton/XPR Network.
 
 ### Architecture
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────┐
 │                    zoltaranwish Contract                     │
 ├─────────────────────────────────────────────────────────────┤
@@ -198,7 +198,7 @@ The game runs on a custom EOSIO smart contract deployed on Proton/XPR Network.
 
 ### Project Structure
 
-```
+```text
 Zoltaran_Speaks/
 ├── index.html              # Complete frontend (HTML/CSS/JS)
 ├── contracts/
@@ -271,7 +271,7 @@ The commit-reveal scheme ensures fair, unpredictable outcomes:
 1. **Commit Phase**: Player submits `SHA256(secret + ipfs_cid)` — secret is unknown to contract
 2. **Block Finality**: Wait for block confirmation
 3. **Reveal Phase**: Player reveals secret, contract computes:
-   ```
+   ```text
    outcome = SHA256(secret + tapos_block_prefix + player) % 10000
    ```
 4. **Verification**: `tapos_block_prefix` is unknowable at commit time, preventing manipulation
@@ -322,7 +322,7 @@ Wish text is stored on decentralized IPFS via [Ubitquity Constellation](https://
 
 This project is licensed under the **MIT License** — see the [LICENSE](LICENSE) file for details.
 
-```
+```text
 MIT License
 
 Copyright (c) 2025-2026 UBITQUITY, INC.
