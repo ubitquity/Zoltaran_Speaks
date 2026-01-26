@@ -6,12 +6,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Zoltaran Speaks (also called "Psychic Traveller Wish") is a **fully decentralized** arcade-style browser game where users make wishes to a fortune teller character. The game runs entirely on the Proton/XPR Network blockchain with IPFS storage for wish text.
 
-**Live version**: https://ndao.org/arcade/games/Zoltarano_Speaks/
+**Live version**: [ndao.org/arcade/games/Zoltarano_Speaks](https://ndao.org/arcade/games/Zoltarano_Speaks/)
 **License**: MIT
 
 ## Architecture
 
-```
+```text
 Browser (index.html)
     |
     +---> Proton Blockchain (zoltaranwish contract)
@@ -61,8 +61,8 @@ EOSIO/Proton smart contract written in C++:
 ### IPFS Integration
 
 Using **Ubitquity Constellation** (standard IPFS API):
-- Upload endpoint: `https://constellation.ubitquity.io/api/v0/add`
-- Gateway: `https://constellation.ubitquity.io/ipfs/{CID}`
+- Upload endpoint: `constellation.ubitquity.io/api/v0/add`
+- Gateway: `constellation.ubitquity.io/ipfs/{CID}`
 
 Wish format stored on IPFS:
 ```json
@@ -136,7 +136,7 @@ python -m http.server 8000
 # or
 npx serve .
 ```
-Then open http://localhost:8000 in a browser.
+Then open `http://localhost:8000` in a browser.
 
 **Note:** Full game testing requires a deployed contract on testnet or mainnet.
 
@@ -154,10 +154,10 @@ In `index.html` JavaScript:
 - `RoboticVoice` - Text-to-speech for Zoltarano
 
 ### External Dependencies
-- Proton Web SDK (CDN): `https://cdnjs.cloudflare.com/ajax/libs/proton-web-sdk/4.2.20/bundle.min.js`
+- Proton Web SDK (CDN): [cdnjs.cloudflare.com](https://cdnjs.cloudflare.com/ajax/libs/proton-web-sdk/4.2.20/bundle.min.js)
 - Google Fonts: Cinzel Decorative, Inter
-- Zoltarano image: `https://ndao.org/arcade/games/Zoltarano_Speaks/ZOLTARANO.png`
-- IPFS Gateway: `https://constellation.ubitquity.io/ipfs/`
+- Zoltarano image: [ndao.org/.../ZOLTARANO.png](https://ndao.org/arcade/games/Zoltarano_Speaks/ZOLTARANO.png)
+- IPFS Gateway: [constellation.ubitquity.io/ipfs/](https://constellation.ubitquity.io/ipfs/)
 
 ## Security Considerations
 
